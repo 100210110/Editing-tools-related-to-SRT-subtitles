@@ -1,0 +1,6 @@
+{
+  "name": "给srt加前缀",
+  "category": "字幕处理",
+  "executable": "自动给srt加前缀.py",
+  "version": "1.0"
+}

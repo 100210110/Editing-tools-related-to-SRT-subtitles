@@ -21,22 +21,16 @@ def get_config():
             return json.load(f)
     except FileNotFoundError:
         print("配置文件 config.json 未找到\n" \
-        "重建默认配置文件")
+        "重建默认配置文件", file=sys.stderr)
         with open("config.json", 'w', encoding='utf-8') as f:
             json.dump(default_config, f, ensure_ascii=False, indent=4)
         return default_config
     except Exception as e:
-        print(f"读取配置文件时发生错误: {e}")
-        reset = input("是否覆盖为默认配置文件？(y/n, 默认y): ").strip().lower() or 'y'
-        if reset == 'y':
-            with open("config.json", 'w', encoding='utf-8') as f:
-                json.dump(default_config, f, ensure_ascii=False, indent=4)
-            print("已覆盖为默认配置文件\n")
-            return default_config
-        else:
-            print("未覆盖配置文件, 程序退出\n")
-            input("按 Enter 键退出...")
-            sys.exit(1)
+        print(f"读取配置文件时发生错误: {e}", file=sys.stderr)
+        with open("config.json", 'w', encoding='utf-8') as f:
+            json.dump(default_config, f, ensure_ascii=False, indent=4)
+        print("已覆盖为默认配置文件\n", file=sys.stderr)
+        return default_config
 
 # 根据配置创建正则和替换函数
 def create_regex():
@@ -51,7 +45,7 @@ def create_regex():
     all_keywords = list(delete_set) + list(bad_to_good.keys())
     all_keywords.sort(key=len, reverse=True)
     regex = re.compile("|".join(re.escape(k) for k in all_keywords))
-    print(f"已加载配置: {len(delete_set)} 个删除词, {len(bad_to_good)} 个替换词\n")
+    print(f"已加载配置: {len(delete_set)} 个删除词, {len(bad_to_good)} 个替换词\n", file=sys.stderr)
 
     # 闭包：捕获 delete_set 和 bad_to_good
     deleted_times = 0
@@ -87,15 +81,6 @@ def clean_text(file_path, processor):
         text = f.read()
     return processor(text)
 
-def get_base_dir():
-    """获取程序所在目录 (兼容打包后的exe和普通py脚本) """
-    if getattr(sys, 'frozen', False):
-        # PyInstaller 打包后，sys.executable 是 exe 的完整路径
-        return os.path.dirname(sys.executable)
-    else:
-        # 正常 Python 脚本运行时
-        return os.path.dirname(os.path.abspath(__file__))
-
 
 # 文明用语小助手
 def print_times(count_dict):
@@ -112,26 +97,37 @@ def print_times(count_dict):
     "   讲话不规范, 后期两行泪")
 
 
+
+
+
 # 主函数
 def main():
-    # 检查是否有文件路径参数
-    if len(sys.argv) < 2:
-        print("请将srt文件拖放到本脚本上, 手动输入没写\n" \
-        "本工具为替换文本文件关键词用\n" \
-        "1. 把文件拖到本工具上\n" \
-        "2. 选择是否需要新建文件\n" )
-        get_config()  # 确保配置文件存在
-        input("按 Enter 键退出...")
+    # 读取所有输入
+    data = sys.stdin.read()
+    if not data:
+        print("没有收到数据", file=sys.stderr)
         sys.exit(1)
+    
+    try:
+        params = json.loads(data)
+    except json.JSONDecodeError as e:
+        print(f"JSON解析失败: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    cache_dir = params.get("output_path")
+    file_lists = params.get("pending_file_lists", [])
+    
+
 
     # 解包三个函数
     process_func, reset_count, get_count = create_regex()
-    base_dir = get_base_dir()
-    temp_dir = os.path.join(base_dir, "output")
-    os.makedirs(temp_dir, exist_ok=True)
+    
+    os.makedirs(cache_dir, exist_ok=True)
 
     deleted_counts = {}
-    for file_path in sys.argv[1:]:
+    for file_path in file_lists:
+        # 你的原有处理逻辑
+        print(f"处理: {file_path}", file=sys.stderr)
         if os.path.isfile(file_path) and file_path.lower().endswith('.srt'):
             try:
                 reset_count()                           # 重置计数
@@ -142,24 +138,25 @@ def main():
                 
                 # 生成输出文件名（保持原后缀）
                 ext = os.path.splitext(file_path)[1]
-                output_path = os.path.join(temp_dir, base_name + ext)
+                output_path = os.path.join(cache_dir, base_name + ext)
 
                 # 重名处理
                 counter = 1
                 while os.path.exists(output_path):
-                    output_path = os.path.join(temp_dir, f"{base_name}_{counter}{ext}")
+                    output_path = os.path.join(cache_dir, f"{base_name}_{counter}{ext}")
                     counter += 1
 
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(text)
-                print(f"已处理：{file_path} -> {output_path}")
+                print(f"已处理：{file_path} -> {output_path}", file=sys.stderr)
             except Exception as e:
-                print(f"❌ 处理失败：{file_path}\n错误: {e}")
+                print(f"❌ 处理失败：{file_path}\n错误: {e}", file=sys.stderr)
         else:
-            print(f"⚠️ 跳过非 SRT 文件：{file_path}")
+            print(f"⚠️ 跳过非 SRT 文件：{file_path}", file=sys.stderr)
 
     print_times(deleted_counts)  # 输出删除统计
 
+    print(json.dumps({"status": "ok", "processed": len(file_lists)}))
 
 
 
@@ -172,5 +169,54 @@ def test():
 if __name__ == "__main__":
     main()
 
-    input("\n所有任务完成, 按 Enter 键退出...")   # 方便查看结果
 
+
+
+
+# # 旧的主函数
+# def main_old():
+#     # 检查是否有文件路径参数
+#     if len(sys.argv) < 2:
+#         print("请将srt文件拖放到本脚本上, 手动输入没写\n" \
+#         "本工具为替换文本文件关键词用\n" \
+#         "1. 把文件拖到本工具上\n" \
+#         "2. 选择是否需要新建文件\n" )
+#         get_config()  # 确保配置文件存在
+#         input("按 Enter 键退出...")
+#         sys.exit(1)
+
+#     # 解包三个函数
+#     process_func, reset_count, get_count = create_regex()
+#     base_dir = get_base_dir()
+#     temp_dir = os.path.join(base_dir, "output")
+#     os.makedirs(temp_dir, exist_ok=True)
+
+#     deleted_counts = {}
+#     for file_path in sys.argv[1:]:
+#         if os.path.isfile(file_path) and file_path.lower().endswith('.srt'):
+#             try:
+#                 reset_count()                           # 重置计数
+#                 text = clean_text(file_path, process_func)   # 处理文本
+                
+#                 base_name = os.path.splitext(os.path.basename(file_path))[0]
+#                 deleted_counts[base_name] = get_count()      # 获取计数
+                
+#                 # 生成输出文件名（保持原后缀）
+#                 ext = os.path.splitext(file_path)[1]
+#                 output_path = os.path.join(temp_dir, base_name + ext)
+
+#                 # 重名处理
+#                 counter = 1
+#                 while os.path.exists(output_path):
+#                     output_path = os.path.join(temp_dir, f"{base_name}_{counter}{ext}")
+#                     counter += 1
+
+#                 with open(output_path, 'w', encoding='utf-8') as f:
+#                     f.write(text)
+#                 print(f"已处理：{file_path} -> {output_path}")
+#             except Exception as e:
+#                 print(f"❌ 处理失败：{file_path}\n错误: {e}")
+#         else:
+#             print(f"⚠️ 跳过非 SRT 文件：{file_path}")
+
+#     print_times(deleted_counts)  # 输出删除统计

@@ -1,0 +1,6 @@
+{
+  "name": "srt关键词替换",
+  "category": "字幕处理",
+  "executable": "srt关键词替换.py",
+  "version": "1.0"
+}
