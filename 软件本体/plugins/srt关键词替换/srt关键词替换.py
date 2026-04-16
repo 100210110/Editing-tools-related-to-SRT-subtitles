@@ -161,11 +161,11 @@ def main():
     return_data = {
         "status": "ok",
         "processed": len(file_lists),
-        "deleted_counts": deleted_counts,
         "completed_output_lists": completed_output_list,
-        "popup": True,
-        "title": "文明小助手",
-        "message": str_text
+        "popup": {
+            "title": "文明小助手",
+            "message": str_text
+        }
     }
     print(json.dumps(return_data, ensure_ascii=False), file=sys.stdout)
 
