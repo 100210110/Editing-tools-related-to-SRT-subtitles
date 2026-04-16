@@ -2,6 +2,13 @@ import sys
 import os
 import json
 import re
+import io
+
+# 强制所有标准流使用 UTF-8
+sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 # 默认配置
 default_config = {

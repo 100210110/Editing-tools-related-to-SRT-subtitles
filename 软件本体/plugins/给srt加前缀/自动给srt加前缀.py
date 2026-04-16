@@ -1,7 +1,12 @@
 import sys
 import os
 import json
-import re
+import io
+
+# 强制所有标准流使用 UTF-8
+sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 实际执行替换的函数
 def add_char_to_srt(srt_path, char, output_path=None):

@@ -6,6 +6,13 @@ import os
 import json
 import shutil
 import subprocess
+import io
+
+# 强制所有标准流使用 UTF-8
+sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 VISION = "1.0.0"
 UPDATE_DATE = "2026-04-01"
@@ -240,6 +247,7 @@ def run_script_plugin(plugin_path, window):
         print(f"插件出错，退出码 {proc.returncode}")
         if stderr:
             print(stderr)
+
 # 将 src_dir 中的所有文件移动到 dst_dir（不处理子文件夹）
 def move_all_files(src_dir, dst_dir):
     os.makedirs(dst_dir, exist_ok=True)
