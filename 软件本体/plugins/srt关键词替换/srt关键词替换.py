@@ -23,18 +23,23 @@ default_config = {
 
 # 读配置，出问题则重置配置
 def get_config():
+    # 获取插件自身的目录
+    if getattr(sys, 'frozen', False):
+        plugin_dir = os.path.dirname(sys.argv[0])
+    else:
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(plugin_dir, "config.json")
     try:
-        with open("config.json", 'r', encoding='utf-8') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        print("配置文件 config.json 未找到\n" \
-        "重建默认配置文件", file=sys.stderr)
-        with open("config.json", 'w', encoding='utf-8') as f:
+        print(f"配置文件 {config_path} 未找到，重建默认配置", file=sys.stderr)
+        with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, ensure_ascii=False, indent=4)
         return default_config
     except Exception as e:
         print(f"读取配置文件时发生错误: {e}", file=sys.stderr)
-        with open("config.json", 'w', encoding='utf-8') as f:
+        with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, ensure_ascii=False, indent=4)
         print("已覆盖为默认配置文件\n", file=sys.stderr)
         return default_config
@@ -100,6 +105,9 @@ def print_times(count_dict):
     str_text += "删词统计:\n"
     for file, count in sorted_items:
         str_text += f"{i}. {file} 抓到 {count} 个敏感词\n"
+        if i >= 10:
+            str_text += "   ...\n"
+            break
         i += 1
 
     str_text += "\n文明小助手提示您: \n" \

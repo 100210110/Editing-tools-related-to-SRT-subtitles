@@ -70,10 +70,17 @@ def clear_folder(folder_path):
     os.makedirs(folder_path)
 
 # ---------- 新增：扫描插件，返回按钮列表（每个按钮是一个字典） ----------
-def scan_plugins(plugins_dir="plugins"):
+def scan_plugins(plugins_dir=None):
     """返回按钮列表，每个元素包含：
        category, label, tooltip, executable_path, type, key, plugin_folder
     """
+    if plugins_dir is None:
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        plugins_dir = os.path.join(base_dir, "plugins")
+        
     all_buttons = []
     if not os.path.exists(plugins_dir):
         return all_buttons
@@ -165,22 +172,21 @@ def build_layout(buttons):
     from collections import defaultdict
     groups = defaultdict(list)      # key: (category, plugin_folder), value: list of buttons
     for btn in buttons:
-        # 从 key 中提取 plugin_folder：key 格式为 "BTN_{folder}_{label}"
-        # 或者可以在 scan_plugins 时直接添加 'plugin_folder' 字段（已有）
         folder = btn.get('plugin_folder', 'unknown')
         groups[(btn['category'], folder)].append(btn)
     
+    # 按类别排序，确保同一类别的所有分组连续显示（类别名称字母顺序）
+    sorted_groups = sorted(groups.items(), key=lambda item: item[0][0])  # item[0] = (category, folder)
+    
     # 记录上一个类别，用于判断是否需要添加类别标题
     last_category = None
-    for (category, folder), btns in groups.items():
+    for (category, folder), btns in sorted_groups:
         # 如果类别变化，添加类别标题行
         if category != last_category:
             layout.append([sg.Text(category, font=("微软雅黑", 10, "bold"))])
             last_category = category
         # 为该插件的所有按钮生成一行（水平排列）
-        row = []
-        for btn in btns:
-            row.append(sg.Button(btn["label"], key=btn["key"], tooltip=btn["tooltip"], size=(20, 1)))
+        row = [sg.Button(btn["label"], key=btn["key"], tooltip=btn["tooltip"], size=(20, 1)) for btn in btns]
         layout.append(row)
     
     # 底部导出按钮和版权信息
@@ -189,8 +195,9 @@ def build_layout(buttons):
         [sg.Push(), sg.Button("导出", key="output_file", size=(5, 1)), sg.Button("导出并打开位置", key="output_file_and_open", size=(15, 1))]
     ])
     layout.extend([
-        [sg.HorizontalSeparator()], [sg.Text(f"视频后期工具箱 - {VISION} ({UPDATE_DATE})"), sg.Push(), sg.Button("关于", key="about", size=(5, 1))]
-        ])
+        [sg.HorizontalSeparator()],
+        [sg.Text(f"视频后期工具箱 - {VISION} ({UPDATE_DATE})"), sg.Push(), sg.Button("关于", key="about", size=(5, 1))]
+    ])
     
     return layout
 

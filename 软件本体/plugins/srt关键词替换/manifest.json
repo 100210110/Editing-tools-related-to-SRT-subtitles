@@ -5,13 +5,13 @@
   "buttons": [
     {
       "label": "srt关键词替换",
-      "tooltip": "批量替换srt文件中的关键词",
+      "tooltip": "删除敏感词并替换",
       "executable": "srt关键词替换.py",
       "type": "script"
     },
     {
-      "label": "修改关键词配置",
-      "tooltip": "修改关键词配置",
+      "label": "修改配置",
+      "tooltip": "编辑 config.json",
       "executable": "config.json",
       "type": "config"
     }

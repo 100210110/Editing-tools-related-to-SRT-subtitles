@@ -10,9 +10,9 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 实际执行替换的函数
 def add_char_to_srt(srt_path, char, output_path=None):
+    """在3 + 4 * i行插入字符"""
     if output_path:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    """在3 + 4 * i行插入字符"""
     with open(srt_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
@@ -41,7 +41,6 @@ def main():
     
     cache_dir = params.get("output_path")
     file_lists = params.get("pending_file_lists", [])
-    use_filename = True  # 默认使用文件名前缀
 
     print(f"接收到 {len(file_lists)} 个文件路径", file=sys.stderr)
     print(f"输出目录: {cache_dir}", file=sys.stderr)
@@ -51,11 +50,7 @@ def main():
     for file_path in file_lists:
         if os.path.isfile(file_path) and file_path.lower().endswith('.srt'):
             try:
-                if use_filename:
-                    prefix = f"{os.path.splitext(os.path.basename(file_path))[0]}："
-                else:
-                    name = input(f"输入字幕前缀名, 默认Re: ").strip() or "Re"
-                    prefix = f"{name}："
+                prefix = f"{os.path.splitext(os.path.basename(file_path))[0]}："
                 
                 # 构造输出文件完整路径：在 cache_dir 下保持原文件名
                 base_name = os.path.basename(file_path)
