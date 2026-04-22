@@ -1,7 +1,8 @@
 {
-  "name": "纯测试部分",
+  "name": "测试插件",
   "category": "debug",
-  "version": "1.0",
+  "version": "1.0.0",
+  "description": "存放一些测试用的脚本，没什么实际功能",
   "buttons": [
     {
       "label": "测试弹窗",

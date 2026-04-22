@@ -1,7 +1,8 @@
 {
   "name": "给srt加前缀",
   "category": "字幕处理",
-  "version": "1.0",
+  "version": "1.0.1",
+  "description": "将srt文件名作为说话人, 添加至字幕前",
   "buttons": [
     {
       "label": "给srt加前缀",
