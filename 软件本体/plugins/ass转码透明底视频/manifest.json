@@ -1,0 +1,14 @@
+{
+  "name": "ass转码透明底视频",
+  "category": "ass转码",
+  "version": "1.0.0",
+  "description": "将ASS字幕转换为透明底视频",
+  "buttons": [
+    {
+      "label": "ass转码透明底视频",
+      "tooltip": "将ASS字幕转换为透明底视频",
+      "executable": "ass转码透明底视频.py",
+      "type": "script"
+    }
+  ]
+}
