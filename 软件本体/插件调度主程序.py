@@ -312,10 +312,13 @@ def run_script_plugin(plugin_path, window):
         program_dir = os.path.dirname(os.path.abspath(__file__))
 
     cache_dir = os.path.join(program_dir, "cache/output")
+    temp_dir = os.path.join(program_dir, "cache/temp")
     os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(temp_dir, exist_ok=True)
 
     forward_json = {
         "output_path": cache_dir,
+        "temp_path": temp_dir,
         "pending_file_lists": FILE_LIST
     }
     json_str = json.dumps(forward_json, ensure_ascii=False)
