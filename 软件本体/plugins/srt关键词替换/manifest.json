@@ -12,8 +12,8 @@
     },
     {
       "label": "修改配置",
-      "tooltip": "编辑 config.json",
-      "executable": "config.json",
+      "tooltip": "编辑 subtitle_rules.json",
+      "executable": "subtitle_rules.json",
       "type": "config"
     }
   ]

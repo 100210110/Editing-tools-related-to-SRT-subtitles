@@ -1,7 +1,7 @@
 import sys, os, re, io, json
-from typing import Dict, List, Set
-import ahocorasick
 from build_automaton import SubtitleRuleProcessor
+import time
+from functools import wraps
 
 # 强制所有标准流使用 UTF-8
 sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
@@ -9,8 +9,20 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 
-logs = ""
+logs = "流程计时"
 
+class Timer:
+    def __init__(self, name: str, output=sys.stderr):
+        self.name = name
+        self.output = output
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+    def __exit__(self, *args):
+        self.end = time.perf_counter()
+        elapsed = (self.end - self.start) * 1000
+        global logs
+        logs += f"\n[TIMER] {self.name} 耗时: {elapsed:.2f} ms"
 
 # 获取资源的绝对路径, 打包后默认返回只读目录, 容开发环境和 PyInstaller 打包后
 def get_path(relative_path=None, use_program_dir=False):
@@ -50,6 +62,7 @@ def print_times(count_dict):
         "无实际处理文件"
         global logs
         logs += f"\n{str_text}"
+        return str_text
 
     str_text = ""
 
@@ -75,6 +88,7 @@ def print_times(count_dict):
 
 # 主函数
 def main():
+    t0 = time.perf_counter()
     # 读取所有输入
     data = sys.stdin.read()
     if not data:
@@ -91,16 +105,19 @@ def main():
     file_lists = params.get("pending_file_lists", [])
     # 确保输出路径存在
     os.makedirs(cache_dir, exist_ok=True)
+    t1 = time.perf_counter()
+    global logs
+    logs += f"\n读取输入耗时: {(t1-t0)*1000:.2f} ms"
 
     deleted_counts = {}
     completed_output_list = []
     
-    global logs
-    logs += f"\n开始构建自动机"
-
+    t2 = time.perf_counter()
     # 构件自动机、加载规则
     processor = SubtitleRuleProcessor()
     processor.load_rules()
+    t3 = time.perf_counter()
+    logs += f"\n加载规则（含构建自动机）耗时: {(t3-t2)*1000:.2f} ms"
     def process_srt_file(file_path):
         processor.reset_profanity_count()
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -108,40 +125,35 @@ def main():
         cleaned_text = processor.process_text(original_text)
         return cleaned_text, processor.get_profanity_count()
     
-    logs += f"\n构建自动机完成"
+    logs += "\n单独文件计时"
+    for file_path in file_lists:    
+        with Timer(f"处理{os.path.splitext(os.path.basename(file_path))[0]}"):
+            if file_path.lower().endswith('.srt'):
+                try:
 
-    for file_path in file_lists:
-        if file_path.lower().endswith('.srt'):
-            try:
-                logs += f"\n正在处理{file_path}"
-
-                cleaned_text, profanity_count = process_srt_file(file_path)
-                base_name = os.path.splitext(os.path.basename(file_path))[0]
-                deleted_counts[base_name] = profanity_count   # 直接存入统计结果
-                # 生成输出文件名（保持原后缀）
-                ext = os.path.splitext(file_path)[1]
-                output_path = os.path.join(cache_dir, base_name + ext)
+                    cleaned_text, profanity_count = process_srt_file(file_path)
+                    base_name = os.path.splitext(os.path.basename(file_path))[0]
+                    deleted_counts[base_name] = profanity_count   # 直接存入统计结果
+                    # 生成输出文件名（保持原后缀）
+                    ext = os.path.splitext(file_path)[1]
+                    output_path = os.path.join(cache_dir, base_name + ext)
 
 
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(cleaned_text)
-                    completed_output_list.append(output_path)
-            except Exception as e:
-                text = f"处理失败：{file_path}, 错误: {e}"
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(cleaned_text)
+                        completed_output_list.append(output_path)
+                except Exception as e:
+                    text = f"处理失败：{file_path}, 错误: {e}"
+                    print(text, file=sys.stderr)
+            else:
+                text = f"跳过非 SRT 文件：{file_path}"
                 print(text, file=sys.stderr)
-                logs += f"\n{text}"
-        else:
-            text = f"跳过非 SRT 文件：{file_path}"
-            print(text, file=sys.stderr)
-            logs += f"\n{text}"
             
 
                 
     str_text = print_times(deleted_counts)  # 输出删除统计
-    log_text = f"cache_dir: {cache_dir}\n" \
-    f"file_lists: {file_lists}\n" \
-    f"completed_output_list: {completed_output_list}\n" \
-    f"logs :{logs}"
+    total_end = time.perf_counter()
+    logs += f"\n总耗时: {(total_end-total_start)*1000:.2f} ms"
 
     return_data = {
         "status": "ok",
@@ -158,4 +170,5 @@ def main():
 
 
 if __name__ == "__main__":
+    total_start = time.perf_counter()
     main()
