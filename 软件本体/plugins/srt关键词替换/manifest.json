@@ -1,7 +1,7 @@
 {
   "name": "srt关键词替换",
   "category": "字幕处理",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "删除敏感词并替换常见错词",
   "buttons": [
     {
