@@ -205,141 +205,94 @@ def scan_plugins(plugins_dir=None):
     return all_buttons
 
 # 处理layout
-class BuildLayout():
-    def __init__(self):
-        self.buttons = {}
-        self.layout_head = self.build_layout_head()
-        self.layout_plugins = []
-        self.layout_output = []
-        self.layout_foot = []
-    
-    def build_layout_head(self):
-        return[
-            [  # 第一行：两个 Column 并排
-                sg.Column([
-                    [sg.Text("拖入文件，可以选中一个或多个移除 (请不要拖入同名文件)")],
-                    [sg.Listbox(values=[], size=(60, 17), key="-FILE_LIST-", select_mode=sg.SELECT_MODE_EXTENDED)],
-                    [
-                        sg.Button("清空所有"),
-                        sg.Button("移除选中"), 
-                        sg.Push(),
-                        sg.Button("重启刷新", key="refresh_plugin", tooltip="刷新还在学, 目前只能点击重启刷新", size=(10, 1)),
-                        sg.Button("导入插件", key="import_plugin", size=(10, 1))
-                    ]
-                ]),
-                sg.Column([
-                    [sg.Text("日志", justification='left')],
-                    [sg.Multiline(size=(20, 18), key="-LOG-", autoscroll=True, disabled=True, write_only=False, reroute_stdout=True)],
-                    [sg.Push(), sg.Button("清空日志", key="clear_log", size=(10, 1))]
-                ])
-            ],
-        ]
+class BuildLayout:
+    def __init__(self, buttons):
+        self.buttons = buttons
 
-    def build_layout_plugins(self):
-        layout_plugins=[]
-        # 按 (category, plugin_folder) 分组
-        groups = defaultdict(list)      # key: (category, plugin_folder), value: list of buttons
-        buttons = scan_plugins()
-        for btn in buttons:
+    def build_head(self):
+        """构建头部：文件列表列 + 日志列"""
+        head_left = sg.Column([
+            [sg.Text("拖入文件，可以选中一个或多个移除 (请不要拖入同名文件)")],
+            [sg.Listbox(values=[], size=(60, 17), key="-FILE_LIST-", select_mode=sg.SELECT_MODE_EXTENDED)],
+            [
+                sg.Button("清空所有"),
+                sg.Button("移除选中"),
+                sg.Push(),
+                sg.Button("重启刷新", key="refresh_plugin", tooltip="刷新还在学, 目前只能点击重启刷新", size=(10, 1)),
+                sg.Button("导入插件", key="import_plugin", size=(10, 1))
+            ]
+        ])
+
+        head_right = sg.Column([
+            [sg.Text("日志", justification='left')],
+            [sg.Multiline(size=(20, 18), key="-LOG-", autoscroll=True, disabled=True, write_only=False, reroute_stdout=True)],
+            [sg.Push(), sg.Button("清空日志", key="clear_log", size=(10, 1))]
+        ])
+
+        return [head_left, head_right]   # 一行中的两个元素
+
+    def build_middle(self):
+        """构建中间插件区域，根据按钮列表分组，并决定是否滚动（阈值7行）"""
+        groups = defaultdict(list)
+        for btn in self.buttons:
             folder = btn.get('plugin_folder', 'unknown')
             groups[(btn['category'], folder)].append(btn)
-        
-        # 按类别排序，确保同一类别的所有分组连续显示（类别名称字母顺序）
-        sorted_groups = sorted(groups.items(), key=lambda item: item[0][0])  # item[0] = (category, folder)
-        
-        # 记录上一个类别，用于判断是否需要添加类别标题
+
+        sorted_groups = sorted(groups.items(), key=lambda item: item[0][0])
         last_category = None
-        for (category, folder), btns in sorted_groups:
-            # 如果类别变化，添加类别标题行
+        middle_rows = []
+        for (category, _), btns in sorted_groups:
             if category != last_category:
-                layout_plugins.append([sg.Text(category, font=("微软雅黑", 10, "bold"))])
+                middle_rows.append([sg.Text(category, font=("微软雅黑", 10, "bold"))])
                 last_category = category
-            # 为该插件的所有按钮生成一行（水平排列）
             row = [sg.Button(btn["label"], key=btn["key"], tooltip=btn["tooltip"], size=(20, 1)) for btn in btns]
-            layout_plugins.append(row)
-        
-        return
+            middle_rows.append(row)
 
-    def build_layout_output(self):
-        return[
+        if not middle_rows:
+            middle_rows = [[sg.Text("没有发现任何插件，请检查 plugins 文件夹")]]
+
+        # 超过7行插件按钮便转为滚动浏览
+        SCROLL_THRESHOLD = 7
+        if len(middle_rows) > SCROLL_THRESHOLD:
+            plugin_area = sg.Column(
+                middle_rows,
+                scrollable=True,
+                vertical_scroll_only=True,
+                expand_y=True,
+                expand_x=True
+            )
+        else:
+            plugin_area = sg.Column(
+                middle_rows,
+                scrollable=False,
+                expand_y=True,
+                expand_x=True
+            )
+        return plugin_area
+
+    def build_foot(self):
+        """构建底部区域：导出按钮 + 版本信息 + 关于按钮"""
+        # VISION, UPDATE_DATE 是模块级全局变量，此处直接使用
+        foot_content = [
             [sg.Push(), sg.Text("处理完成请点击导出按钮创建文件")],
-            [sg.Push(), sg.Button("导出", key="output_file", size=(5, 1)), sg.Button("导出并打开位置", key="output_file_and_open", size=(15, 1))]
+            [sg.Push(), sg.Button("导出", key="output_file", size=(5, 1)), sg.Button("导出并打开位置", key="output_file_and_open", size=(15, 1))],
+            [sg.HorizontalSeparator()],
+            [sg.Text(f"视频后期工具箱 - {VISION} ({UPDATE_DATE})"), sg.Push(), sg.Button("关于", key="about", size=(5, 1))]
         ]
+        return sg.Column(foot_content, expand_x=True)
 
-# 动态构建 layout（基于按钮列表）
-def build_layout(buttons):
-    # 固定头部（文件列表 + 日志）
-    head_layout = [
-        [  # 第一行：两个 Column 并排
-            sg.Column([
-                [sg.Text("拖入文件，可以选中一个或多个移除 (请不要拖入同名文件)")],
-                [sg.Listbox(values=[], size=(60, 17), key="-FILE_LIST-", select_mode=sg.SELECT_MODE_EXTENDED)],
-                [
-                    sg.Button("清空所有"),
-                    sg.Button("移除选中"),
-                    sg.Push(),
-                    sg.Button("重启刷新", key="refresh_plugin", tooltip="刷新还在学, 目前只能点击重启刷新", size=(10, 1)),
-                    sg.Button("导入插件", key="import_plugin", size=(10, 1))
-                ]
-            ]),
-            sg.Column([
-                [sg.Text("日志", justification='left')],
-                [sg.Multiline(size=(20, 18), key="-LOG-", autoscroll=True, disabled=True, write_only=False, reroute_stdout=True)],
-                [sg.Push(), sg.Button("清空日志", key="clear_log", size=(10, 1))]
-            ])
-        ],
-    ]
+    def build_layout(self):
+        """组合最终布局"""
+        head_row = self.build_head()
+        middle_area = self.build_middle()
+        foot_col = self.build_foot()
 
-    # 按类别分组插件
-    from collections import defaultdict
-    groups = defaultdict(list)
-    for btn in buttons:
-        folder = btn.get('plugin_folder', 'unknown')
-        groups[(btn['category'], folder)].append(btn)
-
-    sorted_groups = sorted(groups.items(), key=lambda item: item[0][0])
-    last_category = None
-    middle_rows = []   # 存放动态部分的每一行（列表形式，每行是一个控件列表）
-
-    for (category, _), btns in sorted_groups:
-        if category != last_category:
-            middle_rows.append([sg.Text(category, font=("微软雅黑", 10, "bold"))])
-            last_category = category
-        # 当前插件的所有按钮放在同一行
-        row = [sg.Button(btn["label"], key=btn["key"], tooltip=btn["tooltip"], size=(20, 1)) for btn in btns]
-        middle_rows.append(row)
-
-    if not middle_rows:
-        middle_rows = [[sg.Text("没有发现任何插件，请检查 plugins 文件夹")]]
-
-    # 根据行数决定是否使用滚动区域
-    SCROLL_THRESHOLD = 7   # 超过 7 行则启用滚动
-    if len(middle_rows) > SCROLL_THRESHOLD:
-        plugin_area = sg.Column(
-            middle_rows,
-            scrollable=True,
-            vertical_scroll_only=True,
-            size=(None, 220)        # 高度固定220px，宽度自适应
-        )
-    else:
-        # 行数较少时，直接将 middle_rows 作为普通布局元素展开
-        # 注意：布局中需要是一个列表的列表，因此用一个列表包起来或者直接加入 head_layout 后
-        # 为了统一，我们直接生成一个“虚拟”的 Column，但不带滚动属性（或者直接放入行）
-        # 最简单的做法：将 middle_rows 中的每一行直接添加到 layout 中，但这里我们返回一个普通 Column 也可以
-        # 用普通 Column 包裹，只是不带 scrollable=True，这样就不会出现滚动条
-        plugin_area = sg.Column(middle_rows, scrollable=False)
-
-    # 固定底部
-    foot_layout = [
-        [sg.Push(), sg.Text("处理完成请点击导出按钮创建文件")],
-        [sg.Push(), sg.Button("导出", key="output_file", size=(5, 1)), sg.Button("导出并打开位置", key="output_file_and_open", size=(15, 1))],
-        [sg.HorizontalSeparator()],
-        [sg.Text(f"视频后期工具箱 - {VISION} ({UPDATE_DATE})"), sg.Push(), sg.Button("关于", key="about", size=(5, 1))]
-    ]
-
-    # 组合完整布局
-    layout = head_layout + [[plugin_area]] + foot_layout
-    return layout
+        layout = [
+            head_row,          # 第一行：左右两列并排
+            [middle_area],     # 第二行：中间插件区域
+            [foot_col]         # 第三行：底部区域
+        ]
+        return layout
 
 # 把文件列表发送给插件执行（script 类型专用）
 def run_script_plugin(btn_info, window):
@@ -488,7 +441,10 @@ def init_program():
     root.withdraw()
 
     # 构建布局并创建主窗口
-    layout = build_layout(buttons)
+    buttons = scan_plugins()
+    layout_builder = BuildLayout(buttons)
+    layout = layout_builder.build_layout()
+    # layout = build_layout(buttons)
     window = sg.Window("Re工具箱", layout, finalize=True, icon=APP_ICON_PATH, resizable=True, size=(650, 700))
 
     # 注册拖拽事件
