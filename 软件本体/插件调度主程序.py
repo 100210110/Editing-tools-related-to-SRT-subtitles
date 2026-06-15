@@ -137,10 +137,26 @@ def scan_plugins(plugins_dir=None):
                 exe = btn.get("executable")
                 if not label or not exe:
                     continue
-                exe_path = os.path.join(folder_path, exe)
-                if not os.path.exists(exe_path):
-                    print(f"警告：按钮 {label} 的可执行文件不存在 {exe_path}")
-                    continue
+                base_path = os.path.join(folder_path, exe)
+
+                # 1. 如果原始路径已存在（比如配置直接给了全名），直接使用
+                if os.path.exists(base_path):
+                    exe_path = base_path
+                else:
+                    # 2. 尝试添加扩展名
+                    base_without_ext = os.path.splitext(base_path)[0]
+                    found = False
+                    for ext in ['.py', '.exe']:
+                        candidate = base_without_ext + ext
+                        if os.path.exists(candidate):
+                            exe_path = candidate
+                            found = True
+                            break
+                    if not found:
+                        print(f"警告：按钮 {label} 的可执行文件不存在（尝试过 {base_without_ext}.py 和 {base_without_ext}.exe）")
+                        continue
+                
+
                 btn_type = btn.get("type")
                 if not btn_type:
                     # 根据扩展名自动判断
@@ -159,7 +175,8 @@ def scan_plugins(plugins_dir=None):
                     "executable_path": exe_path,
                     "type": btn_type,
                     "key": key,
-                    "plugin_folder": folder_path   # 备用，config 类型可能需要
+                    "plugin_folder": folder_path,   # 备用，config 类型可能需要
+                    "event": btn.get("event", "")
                 })
         else:
             # 情况2：旧版单按钮格式（只有 name, executable）
@@ -247,15 +264,15 @@ class BuildLayout():
 
 # 动态构建 layout（基于按钮列表）
 def build_layout(buttons):
-    # 固定部分（文件列表区域）
-    layout = [
+    # 固定头部（文件列表 + 日志）
+    head_layout = [
         [  # 第一行：两个 Column 并排
             sg.Column([
                 [sg.Text("拖入文件，可以选中一个或多个移除 (请不要拖入同名文件)")],
                 [sg.Listbox(values=[], size=(60, 17), key="-FILE_LIST-", select_mode=sg.SELECT_MODE_EXTENDED)],
                 [
                     sg.Button("清空所有"),
-                    sg.Button("移除选中"), 
+                    sg.Button("移除选中"),
                     sg.Push(),
                     sg.Button("重启刷新", key="refresh_plugin", tooltip="刷新还在学, 目前只能点击重启刷新", size=(10, 1)),
                     sg.Button("导入插件", key="import_plugin", size=(10, 1))
@@ -268,43 +285,62 @@ def build_layout(buttons):
             ])
         ],
     ]
-    
-    # 按 (category, plugin_folder) 分组
-    groups = defaultdict(list)      # key: (category, plugin_folder), value: list of buttons
+
+    # 按类别分组插件
+    from collections import defaultdict
+    groups = defaultdict(list)
     for btn in buttons:
         folder = btn.get('plugin_folder', 'unknown')
         groups[(btn['category'], folder)].append(btn)
-    
-    # 按类别排序，确保同一类别的所有分组连续显示（类别名称字母顺序）
-    sorted_groups = sorted(groups.items(), key=lambda item: item[0][0])  # item[0] = (category, folder)
-    
-    # 记录上一个类别，用于判断是否需要添加类别标题
+
+    sorted_groups = sorted(groups.items(), key=lambda item: item[0][0])
     last_category = None
-    for (category, folder), btns in sorted_groups:
-        # 如果类别变化，添加类别标题行
+    middle_rows = []   # 存放动态部分的每一行（列表形式，每行是一个控件列表）
+
+    for (category, _), btns in sorted_groups:
         if category != last_category:
-            layout.append([sg.Text(category, font=("微软雅黑", 10, "bold"))])
+            middle_rows.append([sg.Text(category, font=("微软雅黑", 10, "bold"))])
             last_category = category
-        # 为该插件的所有按钮生成一行（水平排列）
+        # 当前插件的所有按钮放在同一行
         row = [sg.Button(btn["label"], key=btn["key"], tooltip=btn["tooltip"], size=(20, 1)) for btn in btns]
-        layout.append(row)
-    
-    # 底部导出按钮和版权信息
-    layout.extend([
+        middle_rows.append(row)
+
+    if not middle_rows:
+        middle_rows = [[sg.Text("没有发现任何插件，请检查 plugins 文件夹")]]
+
+    # 根据行数决定是否使用滚动区域
+    SCROLL_THRESHOLD = 7   # 超过 7 行则启用滚动
+    if len(middle_rows) > SCROLL_THRESHOLD:
+        plugin_area = sg.Column(
+            middle_rows,
+            scrollable=True,
+            vertical_scroll_only=True,
+            size=(None, 220)        # 高度固定220px，宽度自适应
+        )
+    else:
+        # 行数较少时，直接将 middle_rows 作为普通布局元素展开
+        # 注意：布局中需要是一个列表的列表，因此用一个列表包起来或者直接加入 head_layout 后
+        # 为了统一，我们直接生成一个“虚拟”的 Column，但不带滚动属性（或者直接放入行）
+        # 最简单的做法：将 middle_rows 中的每一行直接添加到 layout 中，但这里我们返回一个普通 Column 也可以
+        # 用普通 Column 包裹，只是不带 scrollable=True，这样就不会出现滚动条
+        plugin_area = sg.Column(middle_rows, scrollable=False)
+
+    # 固定底部
+    foot_layout = [
         [sg.Push(), sg.Text("处理完成请点击导出按钮创建文件")],
-        [sg.Push(), sg.Button("导出", key="output_file", size=(5, 1)), sg.Button("导出并打开位置", key="output_file_and_open", size=(15, 1))]
-    ])
-    layout.extend([
+        [sg.Push(), sg.Button("导出", key="output_file", size=(5, 1)), sg.Button("导出并打开位置", key="output_file_and_open", size=(15, 1))],
         [sg.HorizontalSeparator()],
         [sg.Text(f"视频后期工具箱 - {VISION} ({UPDATE_DATE})"), sg.Push(), sg.Button("关于", key="about", size=(5, 1))]
-    ])
-    
+    ]
+
+    # 组合完整布局
+    layout = head_layout + [[plugin_area]] + foot_layout
     return layout
 
 # 把文件列表发送给插件执行（script 类型专用）
-def run_script_plugin(plugin_path, window):
+def run_script_plugin(btn_info, window):
     global FILE_LIST
-
+    plugin_path = btn_info["executable_path"]
     # 获取程序根目录
     if getattr(sys, 'frozen', False):
         program_dir = os.path.dirname(sys.executable)
@@ -321,6 +357,9 @@ def run_script_plugin(plugin_path, window):
         "temp_path": temp_dir,
         "pending_file_lists": FILE_LIST
     }
+    if btn_info["event"]:
+        forward_json["event"] = btn_info["event"]
+
     json_str = json.dumps(forward_json, ensure_ascii=False)
 
     # 关键修改：根据环境和文件类型决定调用方式
@@ -340,13 +379,19 @@ def run_script_plugin(plugin_path, window):
     )
     stdout, stderr = proc.communicate(json_str)
 
+    # 处理插件运行结束后的收尾
     if proc.returncode == 0:
         print("插件处理成功")
         if stdout:
             try:
                 message = json.loads(stdout)
                 if message.get("popup"):
-                    sg.popup(message["popup"]["message"], title=message["popup"]["title"])
+                    MAX_CHARS = 500
+                    MAX_LINES = 10
+                    if len(stderr) > MAX_CHARS or stderr.count('\n') > MAX_LINES:
+                        sg.popup_scrolled(message["popup"]["message"], title=message["popup"]["title"], size=(80, 20))  # 可调整尺寸
+                    else:
+                        sg.popup(message["popup"]["message"], title=message["popup"]["title"])
                 if message.get("completed_output_lists"):
                     FILE_LIST = message["completed_output_lists"]
                     update_listbox(window, FILE_LIST)
@@ -357,6 +402,13 @@ def run_script_plugin(plugin_path, window):
         print(f"插件出错，退出码 {proc.returncode}")
         if stderr:
             print(stderr)
+            # 定义阈值：例如超过 500 个字符或超过 10 行时使用滚动窗口
+            MAX_CHARS = 500
+            MAX_LINES = 10
+            if len(stderr) > MAX_CHARS or stderr.count('\n') > MAX_LINES:
+                sg.popup_scrolled(stderr, title="插件执行失败", size=(80, 20))  # 可调整尺寸
+            else:
+                sg.popup(stderr, title="插件执行失败")
 
 # 将 src_dir 中的所有文件移动到 dst_dir（不处理子文件夹）
 def move_all_files(src_dir, dst_dir):
@@ -433,7 +485,7 @@ def init_program():
 
     # 构建布局并创建主窗口
     layout = build_layout(buttons)
-    window = sg.Window("Re工具箱", layout, finalize=True, icon=APP_ICON_PATH)
+    window = sg.Window("Re工具箱", layout, finalize=True, icon=APP_ICON_PATH, resizable=True, size=(650, 700))
 
     # 注册拖拽事件（on_drop 需要能访问 window）
     listbox_widget = window["-FILE_LIST-"].Widget
@@ -540,7 +592,7 @@ def main():
             btn_info = button_map[event]
             if btn_info["type"] == "script":
                 print(f"\n=== 启动脚本插件：{btn_info['label']} ===")
-                run_script_plugin(btn_info["executable_path"], window)
+                run_script_plugin(btn_info, window)
                 print("=================")
             elif btn_info["type"] == "config":
                 print(f"\n=== 打开配置文件：{btn_info['executable_path']} ===")
