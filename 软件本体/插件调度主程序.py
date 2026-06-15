@@ -491,16 +491,20 @@ def init_program():
     layout = build_layout(buttons)
     window = sg.Window("Re工具箱", layout, finalize=True, icon=APP_ICON_PATH, resizable=True, size=(650, 700))
 
-    # 注册拖拽事件（on_drop 需要能访问 window）
+    # 注册拖拽事件
     listbox_widget = window["-FILE_LIST-"].Widget
     listbox_widget.drop_target_register(DND_FILES)
-    # 使用 lambda 捕获当前 window 对象
     listbox_widget.dnd_bind('<<Drop>>', lambda e: on_drop(e, window))
 
-    # 处理命令行参数
+    # 处理命令行参数（追加到现有列表）
     if len(sys.argv) > 1:
         for file_path in sys.argv[1:]:
-            FILE_LIST.append(file_path)  # 需要 global 声明
+            if file_path not in FILE_LIST:
+                FILE_LIST.append(file_path)
+        # 命令行参数追加后立即刷新一次
+        update_listbox(window, FILE_LIST)
+    else:
+        # 即使没有命令行参数，也要将当前全局列表显示出来（重启刷新时会用到）
         update_listbox(window, FILE_LIST)
 
     # 构建按钮映射
