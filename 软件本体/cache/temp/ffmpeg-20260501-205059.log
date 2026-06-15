@@ -1,0 +1,46 @@
+ffmpeg started on 2026-05-01 at 20:50:59
+Report written to "ffmpeg-20260501-205059.log"
+Log level: 48
+Command line:
+"E:\\projects\\ReToolbox\\Editing-tools-related-to-SRT-subtitles\\\xc8\xed\xbc\xfe\xb1\xbe\xcc\xe5\\plugins\\ass\xd7\xaa\xc2\xeb\xcd\xb8\xc3\xf7\xb5\xd7\xca\xd3\xc6\xb5\\ffmpeg\\bin\\ffmpeg.exe" -report -y -f lavfi -i "color=color=black@0:size=1920x1080:rate=60,format=rgba,subtitles=filename='E:/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/\xc8\xed\xbc\xfe\xb1\xbe\xcc\xe5/cache/temp/_temp_sub_29296.ass':alpha=1" -t 448.1 -c:v qtrle -pix_fmt argb "E:\\projects\\ReToolbox\\Editing-tools-related-to-SRT-subtitles\\\xc8\xed\xbc\xfe\xb1\xbe\xcc\xe5\\cache/output\\test.mov"
+ffmpeg version N-120646-g6711c6a89b-20250810 Copyright (c) 2000-2025 the FFmpeg developers
+  built with gcc 15.1.0 (crosstool-NG 1.27.0.79_8f49ec5)
+  configuration: --prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32 --enable-gpl --enable-version3 --disable-debug --enable-shared --disable-static --disable-w32threads --enable-pthreads --enable-iconv --enable-zlib --enable-libfribidi --enable-gmp --enable-libxml2 --enable-lzma --enable-fontconfig --enable-libharfbuzz --enable-libfreetype --enable-libvorbis --enable-opencl --disable-libpulse --enable-libvmaf --disable-libxcb --disable-xlib --enable-amf --enable-libaom --enable-libaribb24 --enable-avisynth --enable-chromaprint --enable-libdav1d --enable-libdavs2 --enable-libdvdread --enable-libdvdnav --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --enable-frei0r --enable-libgme --enable-libkvazaar --enable-libaribcaption --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-lib  libavutil      60.  9.100 / 60.  9.100
+  libavcodec     62. 12.100 / 62. 12.100
+  libavformat    62.  4.100 / 62.  4.100
+  libavdevice    62.  2.100 / 62.  2.100
+  libavfilter    11.  5.100 / 11.  5.100
+  libswscale      9.  2.100 /  9.  2.100
+  libswresample   6.  2.100 /  6.  2.100
+Splitting the commandline.
+Reading option '-report' ... matched as option 'report' (generate a report) with argument '1'.
+Reading option '-y' ... matched as option 'y' (overwrite output files) with argument '1'.
+Reading option '-f' ... matched as option 'f' (force container format (auto-detected otherwise)) with argument 'lavfi'.
+Reading option '-i' ... matched as input url with argument 'color=color=black@0:size=1920x1080:rate=60,format=rgba,subtitles=filename='E:/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/软件本体/cache/temp/_temp_sub_29296.ass':alpha=1'.
+Reading option '-t' ... matched as option 't' (stop transcoding after specified duration) with argument '448.1'.
+Reading option '-c:v' ... matched as option 'c' (select encoder/decoder ('copy' to copy stream without reencoding)) with argument 'qtrle'.
+Reading option '-pix_fmt' ... matched as option 'pix_fmt' (set pixel format) with argument 'argb'.
+Reading option 'E:\projects\ReToolbox\Editing-tools-related-to-SRT-subtitles\软件本体\cache/output\test.mov' ... matched as output url.
+Finished splitting the commandline.
+Parsing a group of options: global .
+Applying option report (generate a report) with argument 1.
+Applying option y (overwrite output files) with argument 1.
+Successfully parsed a group of options.
+Parsing a group of options: input url color=color=black@0:size=1920x1080:rate=60,format=rgba,subtitles=filename='E:/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/软件本体/cache/temp/_temp_sub_29296.ass':alpha=1.
+Applying option f (force container format (auto-detected otherwise)) with argument lavfi.
+Successfully parsed a group of options.
+Opening an input file: color=color=black@0:size=1920x1080:rate=60,format=rgba,subtitles=filename='E:/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/软件本体/cache/temp/_temp_sub_29296.ass':alpha=1.
+[AVFilterGraph @ 00000197f0cb0e40] Setting 'color' to value 'black@0'
+[AVFilterGraph @ 00000197f0cb0e40] Setting 'size' to value '1920x1080'
+[AVFilterGraph @ 00000197f0cb0e40] Setting 'rate' to value '60'
+[AVFilterGraph @ 00000197f0cb0e40] Setting 'pix_fmts' to value 'rgba'
+[AVFilterGraph @ 00000197f0cb0e40] Setting 'filename' to value 'E'
+[AVFilterGraph @ 00000197f0cb0e40] No option name near '/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/软件本体/cache/temp/_temp_sub_29296.ass:alpha=1'
+[AVFilterGraph @ 00000197f0cb0e40] Error parsing a filter description around: 
+[AVFilterGraph @ 00000197f0cb0e40] Error parsing filterchain 'color=color=black@0:size=1920x1080:rate=60,format=rgba,subtitles=filename='E:/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/软件本体/cache/temp/_temp_sub_29296.ass':alpha=1' around: 
+[AVFilterGraph @ 00000197f0cb0e40] Error processing filtergraph: Invalid argument
+[in#0 @ 00000197f0ca8680] Error opening input: Invalid argument
+Error opening input file color=color=black@0:size=1920x1080:rate=60,format=rgba,subtitles=filename='E:/projects/ReToolbox/Editing-tools-related-to-SRT-subtitles/软件本体/cache/temp/_temp_sub_29296.ass':alpha=1.
+Error opening input files: Invalid argument
+
+Exiting with exit code -22
