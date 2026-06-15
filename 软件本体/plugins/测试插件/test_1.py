@@ -11,9 +11,9 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 def run(params=None):
     sg.popup(
         params,
-        title="main函数弹窗",
+        title="test弹窗_2",
         button_type=True,
-        custom_text="test1"
+        custom_text="test2"
     )
 
 

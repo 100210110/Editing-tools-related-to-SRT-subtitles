@@ -7,8 +7,16 @@
     {
       "label": "测试弹窗",
       "tooltip": "这是一个测试按钮",
-      "executable": "test.py",
-      "type": "script"
+      "executable": "__init__",
+      "type": "script",
+      "event": "test"
+    },
+    {
+      "label": "测试多按钮",
+      "tooltip": "这是一个测试按钮",
+      "executable": "__init__",
+      "type": "script",
+      "event": "test2"
     }
   ]
 }
