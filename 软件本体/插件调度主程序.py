@@ -80,9 +80,8 @@ def parse_dropped_files(data):
 
 # 更新列表框显示
 def update_listbox(window, file_list=FILE_LIST):
-    """同步更新列表框显示"""
     window["-FILE_LIST-"].update(values=file_list)
-    print(f"更新列表框: {file_list}")
+    print(f"更新列表框，当前共 {len(file_list)} 个文件")
 
 # 拖放事件处理函数
 def on_drop(event, window):
@@ -92,15 +91,20 @@ def on_drop(event, window):
     print("原始数据:", repr(raw_data))
     new_paths = parse_dropped_files(raw_data)
     print("新拖入的路径:", new_paths)
-    # 去重添加
+    
+    # 使用集合加速去重
+    current_set = set(FILE_LIST)
     added = 0
     for p in new_paths:
-        if p not in FILE_LIST:
+        if p not in current_set:
             FILE_LIST.append(p)
+            current_set.add(p)
             added += 1
+    
     print(f"添加了 {added} 个新文件")
-    print(f"当前文件列表: {FILE_LIST}")
-    update_listbox(window, FILE_LIST)
+    if added > 0:
+        # 只更新一次列表框
+        update_listbox(window, FILE_LIST)
     print("===============\n")
 
 
