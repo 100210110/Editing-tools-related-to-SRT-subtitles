@@ -10,11 +10,40 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-DEBUG = 0
+DEBUG = 1
 
 def logger(log):
     if DEBUG:
         print(log)
+
+# 获取资源的绝对路径, 打包后默认返回只读目录, 容开发环境和 PyInstaller 打包后
+def get_path(relative_path=None, use_program_dir=False):
+    """获取程序目录或资源文件的绝对路径。
+    
+    参数:
+        relative_path: 相对路径字符串。若为 None，返回程序所在目录。
+        use_program_dir: 仅在打包后且 relative_path 非 None 时有效。
+                         True  → 使用程序所在目录（sys.executable 所在目录）
+                         False → 使用资源临时目录（sys._MEIPASS，只读）
+                         开发环境下此参数无区别。
+    
+    返回:
+        绝对路径字符串。
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后
+        if relative_path is None or use_program_dir:
+            base_path = os.path.dirname(sys.executable)  # 程序目录，可写
+        else:
+            base_path = sys._MEIPASS                      # 只读资源目录
+    else:
+        # 开发环境（脚本运行）
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    if relative_path is None:
+        return base_path
+    else:
+        return os.path.join(base_path, relative_path)
 
 # ---------- 对话框类 ----------
 class RepeatRuleDialog(QDialog):
@@ -168,9 +197,9 @@ class SubtitleEditor(QMainWindow):
 
     # ---------- 文件操作 ----------
     def load_default_and_set_working_file(self):
-        script_dir = os.path.dirname(__file__)
-        default_path = os.path.join(script_dir, "default_subtitle_rules.json")
-        working_path = os.path.join(script_dir, "subtitle_rules.json")
+        
+        default_path = get_path("default_subtitle_rules.json", use_program_dir=False)
+        working_path = os.path.join(get_path(use_program_dir=True), "subtitle_rules.json")
 
         if os.path.exists(default_path):
             try:
@@ -180,7 +209,7 @@ class SubtitleEditor(QMainWindow):
                 QMessageBox.warning(self, "警告", f"加载默认文件失败：{str(e)}\n将使用空数据。")
                 self.data = {"delete": {"profanity": [], "others": []}, "repeat": [], "replace": []}
         else:
-            QMessageBox.information(self, "提示", "未找到 default_subtitle_rules.json，将使用空数据。")
+            QMessageBox.information(self, "提示", f"未找到 default_subtitle_rules.json，将使用空数据。\n失败路径: {default_path}")
 
         self.current_file = working_path
         if os.path.exists(working_path):
