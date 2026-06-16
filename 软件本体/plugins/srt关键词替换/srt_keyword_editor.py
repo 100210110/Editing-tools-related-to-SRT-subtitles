@@ -87,20 +87,15 @@ def print_times(count_dict):
 
 
 # 主函数
-def main():
+def main(params):
+    total_start = time.perf_counter()
     t0 = time.perf_counter()
     # 读取所有输入
-    data = sys.stdin.read()
-    if not data:
+    if not params:
         print("没有收到数据", file=sys.stderr)
         sys.exit(1)
     
-    try:
-        params = json.loads(data)
-    except json.JSONDecodeError as e:
-        print(f"JSON解析失败: {e}", file=sys.stderr)
-        sys.exit(1)
-    
+
     cache_dir = params.get("output_path")
     file_lists = params.get("pending_file_lists", [])
     # 确保输出路径存在
@@ -166,9 +161,9 @@ def main():
     }
     print(json.dumps(return_data, ensure_ascii=False), file=sys.stdout)
 
-
+def run(params):
+    main(params)
 
 
 if __name__ == "__main__":
-    total_start = time.perf_counter()
-    main()
+    run()
