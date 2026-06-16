@@ -1,20 +1,22 @@
 {
   "name": "srt关键词替换",
   "category": "字幕处理",
-  "version": "1.2.0",
+  "version": "1.3.0b",
   "description": "删除敏感词并替换常见错词",
   "buttons": [
     {
       "label": "srt关键词替换",
       "tooltip": "删除敏感词并替换",
-      "executable": "srt关键词替换.py",
-      "type": "script"
+      "executable": "__init__",
+      "type": "script",
+      "event": "main"
     },
     {
       "label": "修改配置",
-      "tooltip": "编辑 subtitle_rules.json",
-      "executable": "subtitle_rules.json",
-      "type": "config"
+      "tooltip": "编辑字幕替换规则",
+      "executable": "__init__",
+      "type": "script",
+      "event": "subtitle_rule_editor"
     }
   ]
 }
