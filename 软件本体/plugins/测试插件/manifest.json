@@ -12,7 +12,7 @@
       "event": "test"
     },
     {
-      "label": "测试多按钮",
+      "label": "测试报错",
       "tooltip": "这是一个测试按钮",
       "executable": "__init__",
       "type": "script",
