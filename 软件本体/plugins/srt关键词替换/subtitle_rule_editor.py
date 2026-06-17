@@ -9,41 +9,11 @@ from PyQt5.QtWidgets import (
     QCheckBox, QGroupBox, QDialogButtonBox, QListWidget, QHeaderView
 )
 from PyQt5.QtCore import Qt
+from common import get_path
+import logging
 
-DEBUG = 1
+logger = logging.getLogger('str_editor_plugin')
 
-def logger(log):
-    if DEBUG:
-        print(log)
-
-# 获取资源的绝对路径, 打包后默认返回只读目录, 容开发环境和 PyInstaller 打包后
-def get_path(relative_path=None, use_program_dir=False):
-    """获取程序目录或资源文件的绝对路径。
-    
-    参数:
-        relative_path: 相对路径字符串。若为 None，返回程序所在目录。
-        use_program_dir: 仅在打包后且 relative_path 非 None 时有效。
-                         True  → 使用程序所在目录（sys.executable 所在目录）
-                         False → 使用资源临时目录（sys._MEIPASS，只读）
-                         开发环境下此参数无区别。
-    
-    返回:
-        绝对路径字符串。
-    """
-    if getattr(sys, 'frozen', False):
-        # PyInstaller 打包后
-        if relative_path is None or use_program_dir:
-            base_path = os.path.dirname(sys.executable)  # 程序目录，可写
-        else:
-            base_path = sys._MEIPASS                      # 只读资源目录
-    else:
-        # 开发环境（脚本运行）
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    if relative_path is None:
-        return base_path
-    else:
-        return os.path.join(base_path, relative_path)
 
 # ---------- 对话框类 ----------
 class RepeatRuleDialog(QDialog):
@@ -422,42 +392,42 @@ class SubtitleEditor(QMainWindow):
             top.setExpanded(True)
 
     def refresh_repeat_tree(self):
-        logger("[refresh_repeat_tree] 进入")
+        logger.info("[配置json模块] 进入")
         top = None
         for i in range(self.tree.topLevelItemCount()):
             if self.tree.topLevelItem(i).text(0) == "Repeat":
                 top = self.tree.topLevelItem(i)
                 break
         if top:
-            logger("[refresh_repeat_tree] 找到 Repeat 根节点，开始重建")
+            logger.info("[配置json模块] 找到 Repeat 根节点，开始重建")
             top.takeChildren()
             self.build_repeat_tree(top)
             top.setExpanded(True)
             self.tree.viewport().update()
-            logger("[refresh_repeat_tree] 重建完成")
+            logger.info("[配置json模块] 重建完成")
         else:
-            logger("[refresh_repeat_tree] 未找到 Repeat 根节点")
+            logger.info("[配置json模块] 未找到 Repeat 根节点")
 
     def refresh_replace_tree(self, preserve_expanded=True):
-        logger(f"[refresh_replace_tree] 进入, preserve_expanded={preserve_expanded}")
+        logger.info(f"[配置json模块] 进入, preserve_expanded={preserve_expanded}")
         expanded_paths = self.get_expanded_paths() if preserve_expanded else []
-        logger(f"[refresh_replace_tree] 保存的展开路径: {expanded_paths}")
+        logger.info(f"[配置json模块] 保存的展开路径: {expanded_paths}")
         top = None
         for i in range(self.tree.topLevelItemCount()):
             if self.tree.topLevelItem(i).text(0) == "Replace":
                 top = self.tree.topLevelItem(i)
                 break
         if top:
-            logger("[refresh_replace_tree] 找到 Replace 根节点，开始重建")
+            logger.info("[配置json模块] 找到 Replace 根节点，开始重建")
             top.takeChildren()
             self.build_replace_tree(top)
             if preserve_expanded:
-                logger("[refresh_replace_tree] 恢复展开路径")
+                logger.info("[配置json模块] 恢复展开路径")
                 self.restore_expanded_paths(expanded_paths)
             top.setExpanded(True)
-            logger("[refresh_replace_tree] 重建完成")
+            logger.info("[配置json模块] 重建完成")
         else:
-            logger("[refresh_replace_tree] 未找到 Replace 根节点")
+            logger.info("[配置json模块] 未找到 Replace 根节点")
 
     # ---------- 辅助方法 ----------
     def _get_path_from_item(self, item):
@@ -557,27 +527,27 @@ class SubtitleEditor(QMainWindow):
         self.refresh_repeat_tree()
 
     def toggle_repeat_rule(self, item):
-        logger("[toggle_repeat_rule] 进入")
+        logger.info("[toggle_repeat_rule] 进入")
         text = item.text(0)
         if text.endswith(" [✓]") or text.endswith(" [✗]"):
             rule_word = text[:-4]
         else:
             rule_word = text
-        logger(f"[toggle_repeat_rule] 规则名称: {rule_word}")
+        logger.info(f"[toggle_repeat_rule] 规则名称: {rule_word}")
         found = False
         for rule in self.data["repeat"]:
             if rule.get("word") == rule_word:
                 old = rule.get("enabled", True)
                 new = not old
                 rule["enabled"] = new
-                logger(f"[toggle_repeat_rule] 找到规则 {rule_word}，旧状态: {old} -> 新状态: {new}")
+                logger.info(f"[toggle_repeat_rule] 找到规则 {rule_word}，旧状态: {old} -> 新状态: {new}")
                 found = True
                 break
         if not found:
-            logger(f"[toggle_repeat_rule] 错误：未找到规则 {rule_word}")
+            logger.info(f"[toggle_repeat_rule] 错误：未找到规则 {rule_word}")
             return
         self.refresh_repeat_tree()
-        logger("[toggle_repeat_rule] 结束")
+        logger.info("[toggle_repeat_rule] 结束")
 
     # ---------- Replace 操作 ----------
     def add_replace_group(self, parent_list=None):
@@ -592,13 +562,13 @@ class SubtitleEditor(QMainWindow):
             self.refresh_replace_tree(preserve_expanded=True)
 
     def add_replace_child_group(self, item):
-        logger("[add_replace_child_group] 进入")
+        logger.info("[add_replace_child_group] 进入")
         node_data = item.data(0, Qt.UserRole)
         if node_data is None or "items" not in node_data:
-            logger("[add_replace_child_group] 无效的父节点")
+            logger.info("[add_replace_child_group] 无效的父节点")
             return
         path = self._get_path_from_item(item)
-        logger(f"[add_replace_child_group] 父节点路径: {path}")
+        logger.info(f"[add_replace_child_group] 父节点路径: {path}")
         default = {"word": "新分组", "type": "group", "enabled": True, "items": []}
         dialog = ReplaceGroupDialog(default, self)
         if dialog.exec_() == QDialog.Accepted:
@@ -611,7 +581,7 @@ class SubtitleEditor(QMainWindow):
                         if len(path_parts) == 1:
                             if "items" in d:
                                 d["items"].append(new_group)
-                                logger(f"[add_replace_child_group] 已将分组添加到 {d['word']}")
+                                logger.info(f"[add_replace_child_group] 已将分组添加到 {d['word']}")
                                 return True
                         elif "items" in d:
                             return find_and_add(d["items"], path_parts[1:])
@@ -619,19 +589,19 @@ class SubtitleEditor(QMainWindow):
             if find_and_add(self.data["replace"], path):
                 self.refresh_replace_tree(preserve_expanded=True)
             else:
-                logger("[add_replace_child_group] 未找到父节点，尝试直接修改 node_data")
+                logger.info("[add_replace_child_group] 未找到父节点，尝试直接修改 node_data")
                 node_data["items"].append(new_group)
                 self.refresh_replace_tree(preserve_expanded=True)
-        logger("[add_replace_child_group] 结束")
+        logger.info("[add_replace_child_group] 结束")
 
     def add_replace_child_item(self, item):
-        logger("[add_replace_child_item] 进入")
+        logger.info("[add_replace_child_item] 进入")
         node_data = item.data(0, Qt.UserRole)
         if node_data is None or "items" not in node_data:
-            logger("[add_replace_child_item] 无效的父节点")
+            logger.info("[add_replace_child_item] 无效的父节点")
             return
         path = self._get_path_from_item(item)
-        logger(f"[add_replace_child_item] 父节点路径: {path}")
+        logger.info(f"[add_replace_child_item] 父节点路径: {path}")
         default_item = {"word": "新子项", "enabled": True, "source": []}
         dialog = ReplaceItemDialog(default_item, self)
         if dialog.exec_() == QDialog.Accepted:
@@ -644,7 +614,7 @@ class SubtitleEditor(QMainWindow):
                         if len(path_parts) == 1:
                             if "items" in d:
                                 d["items"].append(new_item)
-                                logger(f"[add_replace_child_item] 已将子项添加到 {d['word']}")
+                                logger.info(f"[add_replace_child_item] 已将子项添加到 {d['word']}")
                                 return True
                         elif "items" in d:
                             return find_and_add(d["items"], path_parts[1:])
@@ -652,20 +622,20 @@ class SubtitleEditor(QMainWindow):
             if find_and_add(self.data["replace"], path):
                 self.refresh_replace_tree(preserve_expanded=True)
             else:
-                logger("[add_replace_child_item] 未找到父节点，尝试直接修改 node_data")
+                logger.info("[add_replace_child_item] 未找到父节点，尝试直接修改 node_data")
                 node_data["items"].append(new_item)
                 self.refresh_replace_tree(preserve_expanded=True)
-        logger("[add_replace_child_item] 结束")
+        logger.info("[add_replace_child_item] 结束")
 
     def edit_replace_node(self, item):
-        logger("[edit_replace_node] 进入")
+        logger.info("[edit_replace_node] 进入")
         node_data = item.data(0, Qt.UserRole)
         if node_data is None:
-            logger("[edit_replace_node] node_data is None, 退出")
+            logger.info("[edit_replace_node] node_data is None, 退出")
             return
         typ = node_data.get("type", "item")
         path = self._get_path_from_item(item)
-        logger(f"[edit_replace_node] 路径: {path}, 类型: {typ}")
+        logger.info(f"[edit_replace_node] 路径: {path}, 类型: {typ}")
 
         if typ == "group":
             dialog = ReplaceGroupDialog(node_data, self)
@@ -673,16 +643,16 @@ class SubtitleEditor(QMainWindow):
                 new_data = dialog.get_data()
                 new_word = new_data.get("word")
                 new_enabled = new_data.get("enabled")
-                logger(f"[edit_replace_node] 分组编辑确认: new_word={new_word}, new_enabled={new_enabled}")
+                logger.info(f"[edit_replace_node] 分组编辑确认: new_word={new_word}, new_enabled={new_enabled}")
                 if self._update_data_by_path(path, new_word, new_enabled):
-                    logger("[edit_replace_node] self.data 更新成功")
+                    logger.info("[edit_replace_node] self.data 更新成功")
                 else:
-                    logger("[edit_replace_node] 警告：未找到对应节点，尝试直接更新 node_data")
+                    logger.info("[edit_replace_node] 警告：未找到对应节点，尝试直接更新 node_data")
                     node_data["word"] = new_word
                     node_data["enabled"] = new_enabled
                 self.refresh_replace_tree(preserve_expanded=True)
             else:
-                logger("[edit_replace_node] 对话框取消")
+                logger.info("[edit_replace_node] 对话框取消")
         else:
             dialog = ReplaceItemDialog(node_data, self)
             if dialog.exec_() == QDialog.Accepted:
@@ -690,27 +660,27 @@ class SubtitleEditor(QMainWindow):
                 new_word = new_data.get("word")
                 new_enabled = new_data.get("enabled")
                 new_source = new_data.get("source", [])
-                logger(f"[edit_replace_node] item 编辑确认: new_word={new_word}, new_enabled={new_enabled}, source数量={len(new_source)}")
+                logger.info(f"[edit_replace_node] item 编辑确认: new_word={new_word}, new_enabled={new_enabled}, source数量={len(new_source)}")
                 if self._update_data_by_path(path, new_word, new_enabled, new_source):
-                    logger("[edit_replace_node] self.data 更新成功")
+                    logger.info("[edit_replace_node] self.data 更新成功")
                 else:
-                    logger("[edit_replace_node] 警告：未在 self.data 中找到对应节点，尝试直接更新 node_data")
+                    logger.info("[edit_replace_node] 警告：未在 self.data 中找到对应节点，尝试直接更新 node_data")
                     node_data["word"] = new_word
                     node_data["enabled"] = new_enabled
                     node_data["source"] = new_source
                 self.refresh_replace_tree(preserve_expanded=True)
             else:
-                logger("[edit_replace_node] 对话框取消")
-        logger("[edit_replace_node] 结束")
+                logger.info("[edit_replace_node] 对话框取消")
+        logger.info("[edit_replace_node] 结束")
 
     def delete_replace_node(self, item):
-        logger("[delete_replace_node] 进入")
+        logger.info("[delete_replace_node] 进入")
         node_data = item.data(0, Qt.UserRole)
         if node_data is None:
-            logger("[delete_replace_node] node_data is None, 退出")
+            logger.info("[delete_replace_node] node_data is None, 退出")
             return
         path = self._get_path_from_item(item)
-        logger(f"[delete_replace_node] 路径: {path}")
+        logger.info(f"[delete_replace_node] 路径: {path}")
         def remove_from(data_list, path_parts):
             if not path_parts:
                 return False
@@ -718,7 +688,7 @@ class SubtitleEditor(QMainWindow):
                 if d.get("word") == path_parts[0]:
                     if len(path_parts) == 1:
                         del data_list[idx]
-                        logger(f"[delete_replace_node] 已删除节点 {path_parts[0]}")
+                        logger.info(f"[delete_replace_node] 已删除节点 {path_parts[0]}")
                         return True
                     elif "items" in d:
                         if remove_from(d["items"], path_parts[1:]):
@@ -734,17 +704,17 @@ class SubtitleEditor(QMainWindow):
                     for idx, child in enumerate(parent_data["items"]):
                         if child is node_data:
                             del parent_data["items"][idx]
-                            logger("[delete_replace_node] 通过父节点直接删除成功")
+                            logger.info("[delete_replace_node] 通过父节点直接删除成功")
                             self.refresh_replace_tree(preserve_expanded=True)
                             return
-            logger("[delete_replace_node] 删除失败，未找到对应节点")
+            logger.info("[delete_replace_node] 删除失败，未找到对应节点")
 
     def toggle_replace_node(self, item):
         """切换启用状态：同时更新树节点和 self.data"""
-        logger("[toggle_replace_node] 进入")
+        logger.info("[toggle_replace_node] 进入")
         node_data = item.data(0, Qt.UserRole)
         if node_data is None:
-            logger("[toggle_replace_node] node_data is None, 退出")
+            logger.info("[toggle_replace_node] node_data is None, 退出")
             return
         old = node_data.get("enabled", True)
         new_enabled = not old
@@ -759,7 +729,7 @@ class SubtitleEditor(QMainWindow):
 
         # 使用统一的方法获取路径
         path = self._get_path_from_item(item)
-        logger(f"[toggle_replace_node] 路径: {path}")
+        logger.info(f"[toggle_replace_node] 路径: {path}")
 
         # 在 self.data 中查找并更新
         def find_and_update(data_list, path_parts):
@@ -769,19 +739,19 @@ class SubtitleEditor(QMainWindow):
                 if d.get("word") == path_parts[0]:
                     if len(path_parts) == 1:
                         d["enabled"] = new_enabled
-                        logger(f"[toggle_replace_node] 已更新 self.data 中 {d['word']} 的 enabled = {new_enabled}")
+                        logger.info(f"[toggle_replace_node] 已更新 self.data 中 {d['word']} 的 enabled = {new_enabled}")
                         return True
                     elif "items" in d:
                         return find_and_update(d["items"], path_parts[1:])
             return False
 
         if find_and_update(self.data["replace"], path):
-            logger("[toggle_replace_node] self.data 同步成功")
+            logger.info("[toggle_replace_node] self.data 同步成功")
         else:
-            logger("[toggle_replace_node] 警告：未在 self.data 中找到对应节点")
+            logger.info("[toggle_replace_node] 警告：未在 self.data 中找到对应节点")
 
         self.tree.viewport().update()
-        logger("[toggle_replace_node] 结束")
+        logger.info("[toggle_replace_node] 结束")
 
     # ---------- 右键菜单 ----------
     def on_context_menu(self, pos):
@@ -861,7 +831,7 @@ class SubtitleEditor(QMainWindow):
             else:
                 add_child_group = add_child_item = None
             action = menu.exec_(self.tree.viewport().mapToGlobal(pos))
-            logger(f"[右键菜单] Replace 节点, 选择 action: {action.text() if action else None}")
+            logger.info(f"[右键菜单] Replace 节点, 选择 action: {action.text() if action else None}")
             if action == edit_act:
                 self.edit_replace_node(item)
             elif action == del_act:
@@ -880,6 +850,7 @@ class SubtitleEditor(QMainWindow):
     
 
 def run():
+    logger.info("规则配置已启动")
     app = QApplication(sys.argv)
     win = SubtitleEditor()
     win.show()
