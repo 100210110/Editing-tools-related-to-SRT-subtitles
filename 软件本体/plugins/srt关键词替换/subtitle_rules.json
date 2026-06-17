@@ -1,14 +1,45 @@
 {
     "delete": {
         "profanity": [
-            "傻逼", "傻波", "卧槽", "哎呦我草", "我操", "我草", "我靠", "我去", "哦李现",
-            "what's up", "what the fuck", "我的妈", "我的fuck", "fuck", "你他妈的", "你他喵的",
-            "ntmd", "你妈的", "nmd", "他妈的", "他喵的", "TMD", "tmd", "妈的", "喵的", "md",
-            "你妈", "nm", "他妈", "他喵", "tm", "oh shit"
+            "傻逼",
+            "傻波",
+            "卧槽",
+            "哎呦我草",
+            "我操",
+            "我草",
+            "我靠",
+            "我去",
+            "哦李现",
+            "what's up",
+            "what the fuck",
+            "我的妈",
+            "我的fuck",
+            "fuck",
+            "你他妈的",
+            "你他喵的",
+            "ntmd",
+            "你妈的",
+            "nmd",
+            "他妈的",
+            "他喵的",
+            "TMD",
+            "tmd",
+            "妈的",
+            "喵的",
+            "md",
+            "你妈",
+            "nm",
+            "他妈",
+            "他喵",
+            "tm",
+            "oh shit"
         ],
-        "others": ["呃", "huh", "uh"]
+        "others": [
+            "呃",
+            "huh",
+            "uh"
+        ]
     },
-
     "repeat": [
         {
             "word": "完了",
@@ -61,7 +92,6 @@
             }
         }
     ],
-
     "replace": [
         {
             "word": "我的世界",
@@ -76,13 +106,13 @@
                         { "word": "卡慕", "enabled": true, "source": ["卡布", "卡莫", "卡木", "卡不", "卡姆", "Kamu", "karm", "come", "卡慕 on", "扛我", "Kobe", "carm", "Kame", "蛤蟆", "Carmore", "Carmel", "考不"] },
                         { "word": "卡慕SaMa", "enabled": true, "source": ["卡慕sama", "卡慕Sama", "卡慕沙发", "卡慕沙吧", "砍不上吗", "卡慕萨巴", "卡慕沙吗", "卡穆萨玛"] },
                         { "word": "谭俊峰", "enabled": true, "source": ["传进风"] },
-                        { "word": "米洛", "enabled": true, "source": ["米诺", "米罗", "笔落", "余姚", "比洛", "米拉", "米露", "米勒", "明总"] },
+                        { "word": "米洛", "enabled": true, "source": ["米诺", "米罗", "笔落", "余姚", "比洛", "米拉", "米露", "米勒", "明总", "皮罗"] },
                         { "word": "萝卜吃米洛", "enabled": true, "source": ["萝卜吃鱼了", "罗旭罗", "罗旭"] },
                         { "word": "宁宇航", "enabled": true, "source": ["李宇航"] },
-                        { "word": "碧月狐", "enabled": true, "source": ["碧月湖", "闭月狐", "毕业胡", "b月湖", "b月会", "B2胡", "月壶", "夜壶", "壁虎", "鳖胡", "别胡", "憋活", "别活"] },
+                        { "word": "碧月狐", "enabled": true, "source": ["碧月湖", "闭月狐", "毕业胡", "b月湖", "b月会", "B2胡", "月壶", "夜壶", "壁虎", "鳖胡", "别胡", "憋活", "别活", "冰壶", "必有火", "碧红", "边火"] },
                         { "word": "曹某", "enabled": true, "source": ["Tom"] },
                         { "word": "曹小龙", "enabled": true, "source": ["草药龙", "张小龙", "操小龙", "超小龙", "曹勇", "沙拉龙", "条龙"] },
-                        { "word": "qiqi", "enabled": true, "source": ["KIKI", "KI KI", "KKI", "QIQI", "QI QI", "KIQI"] },
+                        { "word": "qiqi", "enabled": true, "source": ["KIKI", "KI KI", "KKI", "QIQI", "QI QI", "KIQI", "KIK", "QY QY", "QYQY", "QQ可爱"] },
                         { "word": "Q3", "enabled": true, "source": ["q3"] },
                         { "word": "贺子鹏", "enabled": true, "source": ["蔡子鹏", "鹤头", "赫德王", "赫兹峰"] },
                         { "word": "药儿", "enabled": true, "source": ["幺儿"] },
@@ -90,7 +120,9 @@
                         { "word": "死睿", "enabled": true, "source": ["sweet", "Siri", "THREE"] },
                         { "word": "烦华", "enabled": true, "source": ["芳芳"] },
                         { "word": "鸽一品", "enabled": true, "source": ["葛一平", "GEP", "隔一天", "割一瓢"] },
-                        { "word": "幕川北", "enabled": true, "source": ["木川北", "莫川北"] }
+                        { "word": "幕川北", "enabled": true, "source": ["木川北", "莫川北", "吴川美", "沐川北", "木船被"] },
+                        { "word": "红叔", "enabled": true, "source": ["猴叔"] },
+                        { "word": "叶智炜", "enabled": true, "source": ["叶志伟"] }
                     ]
                 },
                 {
