@@ -2,13 +2,14 @@ import sys, os, re, io, json
 from build_automaton import SubtitleRuleProcessor
 import time
 from functools import wraps
+from common import get_path
+import logging
 
-# 强制所有标准流使用 UTF-8
-sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+sys.stdin.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
-
+logger = logging.getLogger('str_editor_plugin')
 logs = "流程计时"
 
 class Timer:
@@ -24,34 +25,6 @@ class Timer:
         global logs
         logs += f"\n[TIMER] {self.name} 耗时: {elapsed:.2f} ms"
 
-# 获取资源的绝对路径, 打包后默认返回只读目录, 容开发环境和 PyInstaller 打包后
-def get_path(relative_path=None, use_program_dir=False):
-    """获取程序目录或资源文件的绝对路径。
-    
-    参数:
-        relative_path: 相对路径字符串。若为 None，返回程序所在目录。
-        use_program_dir: 仅在打包后且 relative_path 非 None 时有效。
-                         True  → 使用程序所在目录（sys.executable 所在目录）
-                         False → 使用资源临时目录（sys._MEIPASS，只读）
-                         开发环境下此参数无区别。
-    
-    返回:
-        绝对路径字符串。
-    """
-    if getattr(sys, 'frozen', False):
-        # PyInstaller 打包后
-        if relative_path is None or use_program_dir:
-            base_path = os.path.dirname(sys.executable)  # 程序目录，可写
-        else:
-            base_path = sys._MEIPASS                      # 只读资源目录
-    else:
-        # 开发环境（脚本运行）
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    if relative_path is None:
-        return base_path
-    else:
-        return os.path.join(base_path, relative_path)
 
 
 
@@ -95,7 +68,8 @@ def main(params):
         print("没有收到数据", file=sys.stderr)
         sys.exit(1)
     
-
+    logger.info("params: {str(params)}")
+            
     cache_dir = params.get("output_path")
     file_lists = params.get("pending_file_lists", [])
     # 确保输出路径存在
@@ -159,10 +133,14 @@ def main(params):
             "message": str_text
         }
     }
+
+    logger.info(f"{str(logs)}")
+    logger.info(f"return_data: {return_data}")
     print(json.dumps(return_data, ensure_ascii=False), file=sys.stdout)
 
 def run(params):
-    main(params)
+    logger.info(f"json传入run函数: {str(params)}")
+    return main(params)
 
 
 if __name__ == "__main__":

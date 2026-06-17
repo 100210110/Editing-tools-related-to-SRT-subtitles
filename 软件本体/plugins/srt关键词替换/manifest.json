@@ -3,6 +3,7 @@
   "category": "字幕处理",
   "version": "1.3.0",
   "description": "删除敏感词并替换常见错词",
+  "debug": true,
   "buttons": [
     {
       "label": "srt关键词替换",

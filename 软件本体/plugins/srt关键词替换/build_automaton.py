@@ -55,8 +55,8 @@ def get_path(relative_path=None, use_program_dir=True):
 # 读取并处理json配置
 class SubtitleRuleProcessor:
     def __init__(self):
-        self.json_path = get_path("subtitle_rules.json")
-        self.cache_path = get_path("subtitle_rules.pkl")
+        self.json_path = get_path("subtitle_rules.json", use_program_dir=True)
+        self.cache_path = get_path("subtitle_rules.pkl", use_program_dir=True)
         self.default_config = default_config
         self.raw_config = None
         self.all_keywords: List[str] = []
@@ -69,23 +69,36 @@ class SubtitleRuleProcessor:
         self._profanity_count = 0
 
     def _get_json(self):
-        """读取json数据, 若文件不存在或读取报错, 则创建/覆盖json文件"""
         if self.raw_config:
             return
+        # 先尝试从 EXE 目录读取
+        if os.path.exists(self.json_path):
+            try:
+                with open(self.json_path, 'r', encoding='utf-8') as f:
+                    self.raw_config = json.load(f)
+                return
+            except Exception as e:
+                print(f"读取配置文件失败: {e}", file=sys.stderr)
+        # 若不存在或读取失败，尝试从资源目录复制默认配置
+        default_src = get_path("default_subtitle_rules.json", use_program_dir=False)
+        if os.path.exists(default_src):
+            import shutil
+            try:
+                shutil.copy2(default_src, self.json_path)
+                print(f"已从资源目录复制默认配置到 {self.json_path}", file=sys.stderr)
+                with open(self.json_path, 'r', encoding='utf-8') as f:
+                    self.raw_config = json.load(f)
+                return
+            except Exception as e:
+                print(f"复制默认配置失败: {e}", file=sys.stderr)
+        # 最后使用内嵌的默认配置（硬编码）
+        self.raw_config = self.default_config
+        # 并尝试写入到 EXE 目录
         try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
-                self.raw_config = json.load(f)
-        except FileNotFoundError:
-            print(f"配置文件 {self.json_path} 未找到，重建默认配置", file=sys.stderr)
             with open(self.json_path, 'w', encoding='utf-8') as f:
                 json.dump(self.default_config, f, ensure_ascii=False, indent=4)
-            self.raw_config = self.default_config
         except Exception as e:
-            print(f"读取配置文件时发生错误: {e}", file=sys.stderr)
-            with open(self.json_path, 'w', encoding='utf-8') as f:
-                json.dump(self.default_config, f, ensure_ascii=False, indent=4)
-            print("已覆盖为默认配置文件", file=sys.stderr)
-            self.raw_config = self.default_config
+            print(f"写入默认配置失败: {e}", file=sys.stderr)
 
     def _parse_delete_config(self):
         """解析 delete 部分，构建删除词列表和敏感词集合"""

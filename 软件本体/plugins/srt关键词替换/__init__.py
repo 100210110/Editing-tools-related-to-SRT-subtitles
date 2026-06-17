@@ -1,19 +1,24 @@
 # -*- coding: utf-8 -*-
-"""
-插件统一入口（适用于打包成 exe）
-所有事件处理函数都写在此文件中，通过事件名手动分发。
-"""
-
 import io
+import os
 import sys
 import json
+from common import get_path, setup_logger
 
+sys.stdin.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
+logger = setup_logger(get_path("plugin_log", use_program_dir=True))  
+logger.info("程序启动成功")
 
 
 # ==================== 各事件的具体处理函数 ====================
 def event_main(params):
     """默认事件（main）的处理逻辑"""
     from srt_keyword_editor import run
+    
+    logger.info(str(params))
     run(params=params)
     return "默认事件执行成功"   # 该返回值会传递到 output_result
 
@@ -78,5 +83,8 @@ if __name__ == "__main__":
 
     except Exception as e:
         import traceback
+        error_msg = traceback.format_exc()
+        # 写入日志
+        logger.error(error_msg)
         traceback.print_exc(file=sys.stderr)
         output_result(False, message=str(e))
