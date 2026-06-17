@@ -339,6 +339,8 @@ def run_script_plugin(btn_info, window):
     # 处理插件运行结束后的收尾
     if proc.returncode == 0:
         print("插件处理成功")
+        print("[主程序]stdout: ", str(stdout))
+        print("[主程序]stderr: ", str(stderr))
         if stdout:
             try:
                 message = json.loads(stdout)
@@ -349,6 +351,8 @@ def run_script_plugin(btn_info, window):
                         sg.popup_scrolled(message["popup"]["message"], title=message["popup"]["title"], size=(80, 20))  # 可调整尺寸
                     else:
                         sg.popup(message["popup"]["message"], title=message["popup"]["title"])
+                else:
+                    print(str(message))
                 if message.get("completed_output_lists"):
                     FILE_LIST = message["completed_output_lists"]
                     update_listbox(window, FILE_LIST)
