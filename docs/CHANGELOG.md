@@ -50,6 +50,9 @@
 
 ### 变更
 
+- 删除 `load_zip.py` 中失效的测试入口 `test_plugins_list()`（TODO #19）：该函数循环内只保留最后一个 `PluginInstaller`，空列表时 `plugin_zip` 未定义会抛 `UnboundLocalError`，且只对最后一个包调 `check_version_and_install()`；主程序从未调用它，正式入口是 `import_plugin_list()`。已确认全仓库无引用（仅 `AI_CONTEXT.md` §11 与 `TODO.md` 提及），直接删除；如需“遍历全部并正确处理空列表”的验证入口，应另建 pytest 用例而非保留 GUI 半成品函数（`软件本体/load_zip.py`）。
+- 归档自 `TODO.md` #19，编号不复用。
+
 - 新建根级 `requirements.txt`（runtime，严格 `==` 固定）：`PySimpleGUI==6.0`、`tkinterdnd2==0.4.3`、`pyahocorasick==2.3.1`、`pyass==0.1.4`、`packaging==26.1`、`PyQt5==5.15.11`；只列直接依赖，`PyQt5-Qt5`/`PyQt5-sip` 等间接依赖交给 pip 按上游约束解析。
 - 调整 `requirements-dev.txt` 为 `-r requirements.txt` + `# test`（`pytest==9.1.1`）+ `# build`（`pyinstaller==6.20.0`），原先只有 pytest 一行。
 - 补入 `PyQt5`：`.venv/old_requirements.txt` 一直缺该包，而规则编辑器 (`subtitle_rule_editor.py:5-11`) 依赖它，新环境按旧清单安装后打开编辑器会 `ModuleNotFoundError`。

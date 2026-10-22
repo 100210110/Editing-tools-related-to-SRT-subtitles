@@ -362,17 +362,6 @@ class PluginInstaller:
         return True
 
  
-def test_plugins_list(FILE_LIST=[]):
-    for input_zip_path in FILE_LIST:
-        plugin_zip = PluginInstaller(input_zip_path)
-        if plugin_zip.load_zip_json():
-            plugin_zip.test()
-    if sg.popup_ok_cancel("测试完成，是否继续安装？", title="测试结果") == "OK":
-        plugin_zip.check_version_and_install()
-    else:
-        print("已取消安装", file=sys.stdout)
-
-
 def import_plugin_list(zip_path_list: list):
     success_list = []
     failed_list = []  # 安装失败的文件路径列表
