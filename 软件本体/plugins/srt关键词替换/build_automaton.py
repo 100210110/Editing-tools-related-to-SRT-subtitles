@@ -63,6 +63,7 @@ class SubtitleRuleProcessor:
         self.delete_words: List[str] = []
         self.profanity_set: Set[str] = set()
         self.repeat_rule_map: Dict[str, dict] = {}
+        self.repeat_automaton = None
         self.replace_word_to_sources: Dict[str, List[str]] = {}
         self.replace_source_to_word: Dict[str, str] = {}
         self.automaton = None
@@ -119,8 +120,45 @@ class SubtitleRuleProcessor:
         return self._profanity_count
 
     def _parse_repeat_config(self):
-        """解析 repeat 部分（暂未实现，预留）"""
-        pass
+        """解析 repeat 部分，填充重复词规则映射"""
+        self.repeat_rule_map = {}
+        repeat_cfg = self.raw_config.get("repeat", [])
+        if not isinstance(repeat_cfg, list):
+            return
+        for rule in repeat_cfg:
+            if not isinstance(rule, dict) or not rule.get("enabled", True):
+                continue
+            word = rule.get("word")
+            if not isinstance(word, str) or not word:
+                continue
+            try:
+                max_times = int(rule.get("max_times", 2))
+            except (TypeError, ValueError):
+                continue
+            if max_times < 1:
+                continue
+            interval = rule.get("interval", {})
+            if not isinstance(interval, dict):
+                interval = {}
+            try:
+                min_consecutive = int(interval.get("min_consecutive", 3))
+            except (TypeError, ValueError):
+                min_consecutive = 3
+            separator = interval.get("separator", " ")
+            separator = "" if separator is None else str(separator)
+            new_rule = {
+                "word": word,
+                "max_times": max_times,
+                "interval": {
+                    "enabled": bool(interval.get("enabled", False)),
+                    "min_consecutive": min_consecutive,
+                    "separator": separator,
+                },
+            }
+            existing = self.repeat_rule_map.get(word)
+            # 同一重复词配置多次时，按“max_times 小者优先”保留
+            if existing is None or max_times < existing["max_times"]:
+                self.repeat_rule_map[word] = new_rule
 
     def _process_node(self, node: dict):
         """递归处理 replace 节点，构建映射表"""
@@ -159,7 +197,7 @@ class SubtitleRuleProcessor:
         self.all_keywords = list(keywords)
 
     def _build_automaton(self):
-        """构建 Aho-Corasick 自动机，包含 delete 和 replace 的所有关键词"""
+        """构建 Aho-Corasick 自动机，delete/replace 与 repeat 分开存储"""
         automaton = ahocorasick.Automaton()
         
         # 添加 delete 词
@@ -171,6 +209,16 @@ class SubtitleRuleProcessor:
         
         automaton.make_automaton()
         self.automaton = automaton
+
+        # repeat 在 delete/replace 之后单独扫描，避免同词动作互相覆盖
+        if self.repeat_rule_map:
+            repeat_automaton = ahocorasick.Automaton()
+            for word in self.repeat_rule_map:
+                repeat_automaton.add_word(word, ("repeat", word))
+            repeat_automaton.make_automaton()
+            self.repeat_automaton = repeat_automaton
+        else:
+            self.repeat_automaton = None
 
     def _resolve_overlaps(self, matches):
         """
@@ -209,28 +257,86 @@ class SubtitleRuleProcessor:
                 chars[start:end] = list(correct)
         return "".join(chars)
 
+    def _count_consecutive(self, text: str, start: int, word: str) -> int:
+        """统计从 start 开始连续重复 word 的次数"""
+        count = 0
+        pos = start
+        while text.startswith(word, pos):
+            count += 1
+            pos += len(word)
+        return count
+
+    def _format_repeat(self, word: str, count: int, rule: dict) -> str:
+        """按压缩与加分隔两个独立机制生成替换文本"""
+        kept_times = min(count, rule["max_times"])
+        interval = rule.get("interval", {})
+        if (interval.get("enabled", False)
+                and count >= interval.get("min_consecutive", 3)):
+            return interval.get("separator", " ").join([word] * kept_times)
+        return word * kept_times
+
+    def _apply_repeat_rules(self, text: str) -> str:
+        """在 delete/replace 之后压缩连续重复词并可选加分隔符"""
+        if not text or not self.repeat_rule_map or self.repeat_automaton is None:
+            return text
+
+        repeat_starts: Dict[int, Set[str]] = {}
+        for end, value in self.repeat_automaton.iter(text):
+            word = value[1]
+            start = end - len(word) + 1
+            repeat_starts.setdefault(start, set()).add(word)
+
+        replacements = []
+        last_end = 0
+        for start in sorted(repeat_starts):
+            if start < last_end:
+                continue
+            candidates = []
+            for word in repeat_starts[start]:
+                rule = self.repeat_rule_map[word]
+                count = self._count_consecutive(text, start, word)
+                if count >= 2:
+                    candidates.append((rule["max_times"], -len(word), word, rule, count))
+            if not candidates:
+                continue
+            # 同位置：max_times 小者优先，其次长词优先
+            candidates.sort(key=lambda item: (item[0], item[1]))
+            _, _, word, rule, count = candidates[0]
+            run_end = start + count * len(word)
+            last_end = run_end
+            replacement = self._format_repeat(word, count, rule)
+            if replacement != text[start:run_end]:
+                replacements.append((start, run_end, replacement))
+
+        for start, end, replacement in reversed(replacements):
+            text = text[:start] + replacement + text[end:]
+        return text
+
     def process_text(self, text: str) -> str:
         if self.automaton is None:
             raise RuntimeError("请先调用 load_rules() 加载规则")
         matches = []
-        for end, value in self.automaton.iter(text):
-            # 根据 value 的长度和第一个元素判断类型
-            if isinstance(value, tuple) and len(value) >= 2:
-                if value[0] == "delete":
-                    word = value[1]
-                    start = end - len(word) + 1
-                    matches.append((start, end+1, ("delete", word)))
-                elif value[0] == "replace" and len(value) >= 3:
-                    src, correct = value[1], value[2]
-                    start = end - len(src) + 1
-                    matches.append((start, end+1, ("replace", src, correct)))
-            else:
-                # 异常情况，打印警告并跳过
-                print(f"警告：未知的自动机值格式 {value}", file=sys.stderr)
-                global logs
-                logs += f"警告：未知的自动机值格式 {value}"
+        # 无 delete/replace 词时自动机为空，空自动机不能迭代
+        if self.automaton.kind != ahocorasick.EMPTY:
+            for end, value in self.automaton.iter(text):
+                # 根据 value 的长度和第一个元素判断类型
+                if isinstance(value, tuple) and len(value) >= 2:
+                    if value[0] == "delete":
+                        word = value[1]
+                        start = end - len(word) + 1
+                        matches.append((start, end+1, ("delete", word)))
+                    elif value[0] == "replace" and len(value) >= 3:
+                        src, correct = value[1], value[2]
+                        start = end - len(src) + 1
+                        matches.append((start, end+1, ("replace", src, correct)))
+                else:
+                    # 异常情况，打印警告并跳过
+                    print(f"警告：未知的自动机值格式 {value}", file=sys.stderr)
+                    global logs
+                    logs += f"警告：未知的自动机值格式 {value}"
         matches = self._resolve_overlaps(matches)
-        return self._apply_operations(text, matches)
+        cleaned_text = self._apply_operations(text, matches)
+        return self._apply_repeat_rules(cleaned_text)
     
     def _is_cache_valid(self) -> bool:
         """检查缓存文件是否比 JSON 配置文件新"""
@@ -249,6 +355,8 @@ class SubtitleRuleProcessor:
                 data = pickle.load(f)
             # 恢复所有必要属性
             self.automaton = data['automaton']
+            self.repeat_automaton = data['repeat_automaton']
+            self.repeat_rule_map = data['repeat_rule_map']
             self.delete_words = data['delete_words']
             self.profanity_set = data['profanity_set']
             self.replace_word_to_sources = data['replace_word_to_sources']
@@ -264,6 +372,8 @@ class SubtitleRuleProcessor:
         """将当前自动机及相关数据保存到缓存文件"""
         data = {
             'automaton': self.automaton,
+            'repeat_automaton': self.repeat_automaton,
+            'repeat_rule_map': self.repeat_rule_map,
             'delete_words': self.delete_words,
             'profanity_set': self.profanity_set,
             'replace_word_to_sources': self.replace_word_to_sources,
@@ -284,6 +394,7 @@ class SubtitleRuleProcessor:
             self._get_json()
             self._parse_delete_config()
             self._parse_replace_config()
+            self._parse_repeat_config()
             self._build_all_keywords()
             self._build_automaton()
             self._save_to_cache()

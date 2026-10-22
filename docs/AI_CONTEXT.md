@@ -47,7 +47,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 插件导入（zip）、版本比较、解压安装、重启刷新 | `软件本体/load_zip.py:38-165`；`软件本体/插件调度主程序.py:530-552` | 已实现 |
 | 缓存式链式处理与统一导出 | `软件本体/插件调度主程序.py:298-337`、`375-398`、`573-582` | 已实现 |
 | SRT 文件名作为说话人前缀 | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:12-75` | 已实现 |
-| 敏感词删除、错词替换、删除次数统计（“文明小助手”） | `软件本体/plugins/srt关键词替换/build_automaton.py:56-298`、`srt_keyword_editor.py:32-139` | 已实现；`repeat` / `regex` 规则未实现，见 6.3、11 节 |
+| 敏感词删除、错词替换、重复词压缩、删除次数统计（“文明小助手”） | `软件本体/plugins/srt关键词替换/build_automaton.py:56-403`、`srt_keyword_editor.py:32-139` | 已实现（含 `repeat` 压缩与可选分隔）；`regex` 规则未实现，见 6.5、11 节 |
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
 | 测试插件（弹窗/报错） | `软件本体/plugins/测试插件/__init__.py:14-78` | 调试用途，非生产功能 |
@@ -365,25 +365,28 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 2 | `event_main` 调用 `srt_keyword_editor.run(params)` | `17-24` |
 | 3 | 从请求中取 `output_path`、`pending_file_lists`，创建输出目录 | `srt_keyword_editor.py:63-76` |
 | 4 | 构建 `SubtitleRuleProcessor`，调用 `load_rules()` | `86-88` |
-| 5 | 判断 pkl 缓存是否比 JSON 新：是则 `pickle.load` 恢复自动机与映射；否则重新解析 JSON 并构建自动机 | `build_automaton.py:235-294` |
-| 6 | 解析 `delete`：所有词加入删除列表；`profanity` 子类加入敏感词集合；去重 | `103-111` |
-| 7 | 解析 `replace`：递归遍历分组；`correction` 节点建立“源词 → 正确词”双向映射；`group` 节点递归子项；`regex` 空操作 | `125-148` |
-| 8 | `repeat` 解析函数存在但**从未被调用**，且函数体为 `pass` | `121-123`、`280-289` |
-| 9 | 构建 AC 自动机：只加入 `delete_words` 和 `replace_source_to_word` 的源词 | `161-173` |
+| 5 | 判断 pkl 缓存是否比 JSON 新：是则 `pickle.load` 恢复自动机、映射与 repeat 状态；否则重新解析 JSON 并构建自动机；旧缓存缺少 repeat 键时自动重建 | `build_automaton.py:339-403` |
+| 6 | 解析 `delete`：所有词加入删除列表；`profanity` 子类加入敏感词集合；去重 | `104-112` |
+| 7 | 解析 `replace`：递归遍历分组；`correction` 节点建立“源词 → 正确词”双向映射；`group` 节点递归子项；`regex` 空操作 | `163-186` |
+| 8 | 解析 `repeat`：`enabled=false` 的规则整条跳过；填充重复词规则映射（`max_times`、间隔开关、门槛、分隔符） | `122-161` |
+| 9 | 构建主 AC 自动机：只加入 `delete_words` 和 `replace_source_to_word` 的源词；repeat 另建独立自动机 | `199-221` |
 | 10 | 逐文件读取文本，重置敏感词计数，调用 `process_text()` | `srt_keyword_editor.py:90-119` |
-| 11 | `process_text()` 用自动机收集所有匹配，解析重叠，按位置从右到左删除/替换 | `build_automaton.py:212-233`、`175-210` |
-| 12 | 写回 `cache/output/<原 basename>.srt`，记录成功列表 | `srt_keyword_editor.py:104-113` |
-| 13 | 统计每个文件删除的 profanity 次数，按降序取前 10，生成“文明小助手”文案 | `32-57`、`81-123` |
-| 14 | stdout 输出 JSON（含 `popup` 与 `completed_output_lists`） | `127-139` |
+| 11 | `process_text()` 用主自动机收集 delete/replace 匹配，解析重叠，按位置从右到左删除/替换 | `build_automaton.py:223-258`、`315-337` |
+| 12 | 在清理后的文本上执行 repeat：连续同词重复按 `max_times` 压缩；满足间隔条件时插入分隔符；不改变敏感词计数 | `260-313` |
+| 13 | 写回 `cache/output/<原 basename>.srt`，记录成功列表 | `srt_keyword_editor.py:104-113` |
+| 14 | 统计每个文件删除的 profanity 次数，按降序取前 10，生成“文明小助手”文案 | `32-57`、`81-123` |
+| 15 | stdout 输出 JSON（含 `popup` 与 `completed_output_lists`） | `127-139` |
 
 关键语义：
 
-- **大小写敏感**：AC 自动机默认精确匹配；英文变体靠规则里的人工枚举（如 `Kamu`、`karm`、`come`）覆盖，没有统一转小写逻辑（`build_automaton.py:161-173`）。
-- **删除计数**：只有 `delete.profanity` 中的词会累加计数；`delete.others` 只删除、不计数（`103-111`、`201-206`）。
-- **最长匹配**：`_resolve_overlaps()` 先按起点升序、终点降序排序，再线性过滤；**只有起点相同的候选才保证长词优先**，起点不同的重叠不保证全局最长匹配（`175-191`）。
-- **同位置冲突**：删除与替换若落在同一区间，最终结果取决于匹配收集顺序与排序稳定性；没有显式优先级（`175-210`）。
+- **大小写敏感**：AC 自动机默认精确匹配；英文变体靠规则里的人工枚举（如 `Kamu`、`karm`、`come`）覆盖，没有统一转小写逻辑（`build_automaton.py:199-221`）。
+- **删除计数**：只有 `delete.profanity` 中的词会累加计数；`delete.others` 只删除、不计数（`104-112`、`249-254`）。
+- **最长匹配**：`_resolve_overlaps()` 先按起点升序、终点降序排序，再线性过滤；**只有起点相同的候选才保证长词优先**，起点不同的重叠不保证全局最长匹配（`223-239`）。
+- **同位置冲突**：删除与替换若落在同一区间，最终结果取决于匹配收集顺序与排序稳定性；没有显式优先级（`223-258`）。
+- **repeat 生效条件**：外层 `enabled=false` 时整条规则不生效（不识别、不压缩、不加分隔符）；`interval.enabled` 只控制是否插入分隔符，压缩与识别不受其影响（`122-161`、`269-276`）。
+- **repeat 识别与处理**：只识别无空格、无标点的连续同词重复；重复次数按“词出现次数”计算（如 `哈哈哈哈` 中 `哈哈` 计 2 次）；原始次数超过 `max_times` 时压缩，达到 `min_consecutive` 时可插入 `separator`；同位置多规则按 `max_times` 小者优先、再长词优先；处理顺序为 delete/replace → repeat，repeat 不改变敏感词计数（`260-313`、`315-337`）。
 - **输出命名**：与输入同 basename，不保留目录层级；同名输入会覆盖（`104-108`）。
-- **规则缓存**：`subtitle_rules.pkl` 只通过 mtime 判断是否过期；如果 pkl 来自旧版本但 mtime 较新（例如 git checkout 后），会直接加载旧缓存（`235-243`）。
+- **规则缓存**：`subtitle_rules.pkl` 只通过 mtime 判断是否过期；如果 pkl 来自旧版本但 mtime 较新（例如 git checkout 后），会直接加载旧缓存；载荷已包含 repeat 状态，缺少 repeat 键的旧缓存会触发重建（`339-403`）。
 
 ### 5.5 规则编辑器流程
 
@@ -400,9 +403,9 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 规则编辑器的语义补充：
 
-- “启用”状态会写入 JSON 的 `enabled` 字段；主处理器在解析时跳过 `enabled=false` 的节点（`build_automaton.py:125-143`）。
-- 编辑器支持 `repeat` 规则的增删改（`508-550`），但主处理器并未实现重复词处理（见 11 节），因此这些配置目前不会影响输出。
-- `ReplaceItemDialog` 只防止同一个 item 的 `source` 列表内重复（`108-115`），不检查不同 item/分组之间的源词冲突；主处理器后写入的映射会覆盖先写入的（`build_automaton.py:133-138`）。
+- “启用”状态会写入 JSON 的 `enabled` 字段；主处理器在解析时跳过 `enabled=false` 的节点（`build_automaton.py:163-181`）。
+- 编辑器支持 `repeat` 规则的增删改（`514-556`），并在 Repeat 对话框提供语义 tooltip（外层启用、压缩与分隔独立、门槛按原始次数、分隔符作用）；保存后由主处理器解析并生效，见 5.4 与 6.5。
+- `ReplaceItemDialog` 只防止同一个 item 的 `source` 列表内重复（`108-115`），不检查不同 item/分组之间的源词冲突；主处理器后写入的映射会覆盖先写入的（`build_automaton.py:171-176`）。
 - 打包后“新建”把保存目标设为 `os.path.dirname(__file__)/subtitle_rules.json`（`214-218`）；在 PyInstaller 单文件模式下 `__file__` 可能位于临时解压目录，存在写入只读/临时目录的风险，**未在打包环境验证**。
 
 ### 5.6 SRT 加前缀流程
@@ -565,15 +568,15 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 |---|---|---|---|
 | `delete.profanity` | string[] | 敏感词列表 | 删除并计数 |
 | `delete.others` | string[] | 其他要删除的词 | 删除但不计数 |
-| `repeat[]` | object[] | 重复词规则 | **当前未生效**；编辑器可编辑并持久化 |
-| `repeat[].word` | string | 重复词 | 未使用 |
-| `repeat[].enabled` | bool | 是否启用 | 未使用 |
-| `repeat[].max_times` | int | 最大保留次数 | 未使用 |
-| `repeat[].interval.enabled` | bool | 是否启用间隔规则 | 未使用 |
-| `repeat[].interval.min_consecutive` | int | 最小连续次数 | 未使用 |
-| `repeat[].interval.separator` | string | 分隔符 | 未使用 |
+| `repeat[]` | object[] | 重复词规则 | 解析后生效；外层禁用则整条跳过 |
+| `repeat[].word` | string | 连续重复的匹配词 | 仅识别无空格、无标点的连续同词 |
+| `repeat[].enabled` | bool | 是否启用 | `false` 时整条规则不生效 |
+| `repeat[].max_times` | int | 最大保留次数 | 原始连续次数超过该值时只保留该次数 |
+| `repeat[].interval.enabled` | bool | 是否启用分隔符 | 仅控制是否插入分隔符，不影响压缩与识别 |
+| `repeat[].interval.min_consecutive` | int | 最小连续次数 | 原始连续次数达到该值时插入分隔符（按压缩前计数） |
+| `repeat[].interval.separator` | string | 分隔符 | 插入在保留的重复词之间 |
 | `replace[]` | object[] | 替换规则树 | 递归解析 |
-| `replace[].type` | string | `group` / `correction` / `regex` | `group` 递归；`correction` 建映射；`regex` 空操作 |
+| `replace[].type` | string | `group` / `correction` / `regex` | `group` 递归；`correction` 建映射；`regex` 空操作（`177-179`） |
 | `replace[].word` | string | 分组名或正确词 | `correction` 的目标词 |
 | `replace[].enabled` | bool | 是否启用 | `false` 时整棵子树跳过 |
 | `replace[].items` | object[] | `group` 的子节点 | 仅 `group` 使用 |
@@ -582,18 +585,22 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 数据语义：
 
 - 处理器的映射是**扁平**的：递归遍历所有启用的 `correction` 节点，最终只保留 `source → word` 一张表；分组层级只用于编辑和启用/禁用，不参与运行时匹配。
-- 同一个 `source` 出现在多个 `correction` 节点时，后遍历到的会覆盖先前的目标词（`build_automaton.py:133-138`）。
-- 删除词通过 `list(set(...))` 去重，顺序不稳定，但删除语义与顺序无关（`103-111`）。
+- 同一个 `source` 出现在多个 `correction` 节点时，后遍历到的会覆盖先前的目标词（`build_automaton.py:171-176`）。
+- 删除词通过 `list(set(...))` 去重，顺序不稳定，但删除语义与顺序无关（`104-112`）。
+- repeat 的压缩与分隔相互独立：外层 `enabled` 控制整条规则；`max_times` 控制保留次数；`interval.enabled` + `min_consecutive` 控制分隔符。重复次数按“词出现次数”计算（`哈哈哈哈` 中 `哈哈` 计 2 次）；处理在 delete/replace 之后，不改变敏感词计数（`build_automaton.py:122-161`、`260-313`）。
+- 同一位置命中多个 repeat 规则时，`max_times` 小者优先，其次长词优先（`294-306`）。
 - `default_subtitle_rules.json` 与 `build_automaton.py` 中的 `default_config` 是两份默认规则来源，内容近似但**未逐字比对**；修改默认规则时需要同步两处（`build_automaton.py:10`、`default_subtitle_rules.json`）。
 - 规则 JSON 没有 `schema_version` 字段，也没有迁移机制。
 
 ### 6.6 `subtitle_rules.pkl` 缓存载荷
 
-`_save_to_cache()` 写入以下键（`build_automaton.py:263-278`）：
+`_save_to_cache()` 写入以下键（`build_automaton.py:369-386`）：
 
 | 键 | 内容 |
 |---|---|
-| `automaton` | `ahocorasick.Automaton` 实例 |
+| `automaton` | `ahocorasick.Automaton` 实例（delete/replace） |
+| `repeat_automaton` | `ahocorasick.Automaton` 实例（repeat），无规则时为 `None` |
+| `repeat_rule_map` | 重复词 → `{max_times, interval}` 规则映射 |
 | `delete_words` | 去重后的删除词列表 |
 | `profanity_set` | 敏感词集合 |
 | `replace_word_to_sources` | 正确词 → 源词列表 |
@@ -601,7 +608,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | `all_keywords` | 所有关键词（当前仅供缓存/调试） |
 | `raw_config` | 原始规则 JSON |
 
-缓存有效性只检查 `cache_mtime > json_mtime`（`235-243`），不校验内容哈希、代码版本或 schema 版本。
+缓存有效性只检查 `cache_mtime > json_mtime`（`339-347`），不校验内容哈希、代码版本或 schema 版本。旧缓存缺少 `repeat_automaton` / `repeat_rule_map` 时，`_load_from_cache()` 返回 `False`，`load_rules()` 会自动强制重建（`349-403`）。
 
 ### 6.7 运行时消息模型
 
@@ -1067,9 +1074,9 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 |---|---|---|---|
 | 高 | **插件安装路径可被 manifest 的 `plugin_id` 带出 `plugins/`**：`plugin_path = get_path(f'plugins\\{plugin_id}')`，未校验 `..`/绝对路径；安装前直接 `shutil.rmtree(self.plugin_path)` | `软件本体/load_zip.py:74-77`、`121-130` | 导入不可信 zip 可能删除/覆盖插件目录之外的路径。建议限制 `plugin_id` 为安全字符集，并用 `os.path.realpath` 校验目标位于 `plugins/` 下 |
 | 高 | **安装失败仍返回成功**：`install()` 捕获异常后只弹窗，不返回 False；`check_version_and_install()` 随后无条件 `return True` | `软件本体/load_zip.py:117-118`、`121-134`、`157-161` | 主程序会把失败 zip 从列表移除并提示安装成功。建议让 `install()` 返回 bool/抛异常，并据此更新结果 |
-| 中 | **`repeat` 规则完全未生效**：编辑器可增删改并保存，但 `_parse_repeat_config()` 是 `pass` 且从未被 `load_rules()` 调用；AC 自动机只加入 delete/replace | `软件本体/plugins/srt关键词替换/build_automaton.py:121-123`、`161-173`、`280-289`；`subtitle_rule_editor.py:315-327`、`508-550` | 用户会以为“重复词压缩”已生效。建议实现、或在编辑器中明确标注“未启用/预留”并禁用 |
-| 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:139-141` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
-| 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪** | `build_automaton.py:235-243`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
+| 已解决 | **`repeat` 规则未生效**（2026-10-22 已实现） | `build_automaton.py:122-161`（解析）、`260-313`（压缩/分隔）、`388-403`（加载入口）；`subtitle_rule_editor.py:19-70`（对话框提示） | 已支持压缩、可选分隔、外层禁用与缓存扩展，详见 `CHANGELOG.md` [未发布] → 新增 |
+| 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
+| 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪** | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
 | 中 | **无正式依赖清单**：仓库没有 `requirements.txt`/`pyproject.toml`；`.venv/old_requirements.txt` 缺少 PyQt5，且包含未使用包 | `.venv/old_requirements.txt`；`subtitle_rule_editor.py:5-11`；`pysub-parser`/`Unidecode` 未被 import | 新环境难以复现，规则编辑器容易因缺 PyQt5 失败。建议整理最小依赖清单并区分 runtime/dev/build |
 | 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者 | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
 | 中 | **ASS 插件缺少 FFmpeg**：代码要求 `ffmpeg/bin/ffmpeg.exe`，仓库该目录为空，发布包中也未发现 FFmpeg | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`；目录清单 | 源码环境下 ASS 功能不可用。建议文档说明外部依赖，或在发布包中附带并校验版本 |
@@ -1093,7 +1100,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 ### 11.1 建议的优先修复顺序
 
 1. **先修安装器安全与正确性**：`plugin_id` 路径校验、`install()` 返回值、`check_version_and_install()` 结果传递。
-2. **明确规则能力边界**：实现 `repeat`/`regex`，或在 UI/文档中标记为未启用，避免用户误解。
+2. **明确规则能力边界**：`repeat` 已实现；剩余 `regex` 需实现或在 UI/文档中标记为未启用，避免用户误解。
 3. **缓存与依赖可复现**：增加 `requirements.txt`，移除 pkl/日志出库，加入 schema/内容哈希。
 4. **更新 README**：以 `subtitle_rules.json` 和规则编辑器为准，补全导入/导出/ASS 说明。
 5. **改善长任务体验**：插件异步执行、进度/取消、超时；至少避免 UI 假死。
@@ -1206,4 +1213,4 @@ tail -n 50 "Editing-tools-related-to-SRT-subtitles/软件本体/plugins/srt关�
 
 ---
 
-**交接结论**：该项目结构小巧、插件边界清晰，最值得保留的设计是“manifest 驱动 + stdin/stdout JSON + 缓存式链式处理”；最需要优先处理的是插件安装器的路径/返回值安全、`repeat/regex` 能力与文档不一致、pkl 缓存失效策略，以及缺失的依赖/测试基础设施。建议接手后先按 9.6 做一次完整冒烟，再按 11.1 的顺序逐步修复。
+**交接结论**：该项目结构小巧、插件边界清晰，最值得保留的设计是“manifest 驱动 + stdin/stdout JSON + 缓存式链式处理”；最需要优先处理的是插件安装器的路径/返回值安全、`regex` 能力与文档不一致、pkl 缓存失效策略，以及缺失的依赖/测试基础设施。建议接手后先按 9.6 做一次完整冒烟，再按 11.1 的顺序逐步修复。

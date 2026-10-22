@@ -39,6 +39,12 @@ class RepeatRuleDialog(QDialog):
         self.min_consecutive_spin.setValue(interval.get("min_consecutive", 3))
         self.separator_edit = QLineEdit(interval.get("separator", " "))
 
+        self.enabled_check.setToolTip("关闭后整条重复规则不生效。")
+        self.max_times_spin.setToolTip("连续出现次数超过该值时只保留该次数；间隔规则关闭也会压缩。")
+        self.interval_enabled.setToolTip("仅控制是否插入分隔符，不影响压缩和识别。")
+        self.min_consecutive_spin.setToolTip("按压缩前的原始连续出现次数判断。")
+        self.separator_edit.setToolTip("满足间隔条件时插入在保留的重复词之间。")
+
         layout.addRow("单词:", self.word_edit)
         layout.addRow("启用:", self.enabled_check)
         layout.addRow("最大重复次数:", self.max_times_spin)
