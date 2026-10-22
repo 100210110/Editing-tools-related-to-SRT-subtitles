@@ -20,6 +20,7 @@ MAIN_PROGRAM_PATH = SOFTWARE_DIR / "插件调度主程序.py"
 KEYWORD_PLUGIN_DIR = SOFTWARE_DIR / "plugins" / "srt关键词替换"
 KEYWORD_PROCESSOR_PATH = KEYWORD_PLUGIN_DIR / "srt_keyword_editor.py"
 PREFIX_PLUGIN_PATH = SOFTWARE_DIR / "plugins" / "srt加前缀" / "自动给srt加前缀.py"
+RULE_EDITOR_PATH = KEYWORD_PLUGIN_DIR / "subtitle_rule_editor.py"
 
 _DEFAULT_MANIFEST = object()
 
@@ -63,6 +64,29 @@ def main_program_module():
         sys.stdin, sys.stdout, sys.stderr = saved_streams
         sys.path[:] = saved_path
     return module
+
+
+@pytest.fixture(scope="session")
+def rule_editor_module():
+    """加载规则编辑器模块（PyQt5）；需要把插件目录加入 sys.path 才能 `from common import get_path`。"""
+    saved_path = list(sys.path)
+    sys.path.insert(0, str(RULE_EDITOR_PATH.parent))
+    try:
+        module = _load_module("retoolbox_rule_editor_under_test", RULE_EDITOR_PATH)
+    finally:
+        sys.path[:] = saved_path
+    return module
+
+
+@pytest.fixture(scope="session")
+def qt_app(rule_editor_module):
+    """离屏 Qt 应用；没有 offscreen 平台插件时跳过 GUI 用例（不算失败）。"""
+    pytest.importorskip("PyQt5.QtWidgets", reason="未安装 PyQt5")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PyQt5.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    return app
 
 
 @pytest.fixture(scope="session")

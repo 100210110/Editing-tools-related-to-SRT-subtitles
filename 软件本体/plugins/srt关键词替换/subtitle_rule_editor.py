@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QCheckBox, QGroupBox, QDialogButtonBox, QListWidget, QHeaderView
 )
 from PyQt5.QtCore import Qt
-from common import get_path
+from common import get_path, find_duplicate_sources
 import logging
 
 logger = logging.getLogger('str_editor_plugin')
@@ -70,9 +70,11 @@ class RepeatRuleDialog(QDialog):
         }
 
 class ReplaceItemDialog(QDialog):
-    def __init__(self, item_data, parent=None):
+    def __init__(self, item_data, parent=None, known_sources=None):
         super().__init__(parent)
         self.item_data = item_data.copy()
+        # 编辑器其余节点已使用的 source → 所属正确词，用于新增时提示跨节点冲突
+        self.known_sources = known_sources or {}
         self.setWindowTitle("编辑替换项")
         self.setModal(True)
         layout = QVBoxLayout(self)
@@ -114,11 +116,26 @@ class ReplaceItemDialog(QDialog):
     def add_source(self):
         text, ok = QInputDialog.getText(self, "添加源词", "输入源词:")
         if ok and text.strip():
+            word = text.strip()
             existing = [self.source_list.item(i).text() for i in range(self.source_list.count())]
-            if text.strip() in existing:
-                QMessageBox.warning(self, "重复", f"源词 '{text.strip()}' 已存在，不能重复添加。")
+            if word in existing:
+                QMessageBox.warning(self, "重复", f"源词 '{word}' 已存在，不能重复添加。")
                 return
-            self.source_list.addItem(text.strip())
+            # 跨节点重复：处理时只有最后一个节点生效，添加前先确认
+            current_word = self.item_data.get("word")
+            others = [
+                owner for owner in self.known_sources.get(word, []) if owner != current_word
+            ]
+            if others:
+                answer = QMessageBox.question(
+                    self, "源词已被使用",
+                    f"源词 '{word}' 已出现在替换项 {' / '.join(others)} 中。\n"
+                    "同一源词出现在多个替换项时，处理时只有最后一个生效。\n仍要添加吗？",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+                )
+                if answer != QMessageBox.Yes:
+                    return
+            self.source_list.addItem(word)
 
     def remove_source(self):
         cur = self.source_list.currentRow()
@@ -195,8 +212,52 @@ class SubtitleEditor(QMainWindow):
             except Exception as e:
                 QMessageBox.warning(self, "警告", f"加载工作文件失败：{str(e)}，将使用默认模板。")
 
+
+    def collect_sources(self):
+        """收集当前规则里所有已使用的源词 → 所属正确词，用于新增时提示冲突。"""
+        mapping = {}
+
+        def walk(node):
+            if not isinstance(node, dict) or not node.get("enabled", True):
+                return
+            node_type = node.get("type", "correction")
+            if node_type == "group":
+                for child in node.get("items", []) or []:
+                    walk(child)
+                return
+            if node_type != "correction":
+                return
+            word = node.get("word")
+            for src in node.get("source", []) or []:
+                owners = mapping.setdefault(src, [])
+                if word not in owners:
+                    owners.append(word)
+
+        for node in self.data.get("replace", []) or []:
+            walk(node)
+        return mapping
+
+    def confirm_duplicate_sources(self):
+        """保存前扫描跨节点重复 source：有冲突就列出来并询问是否继续。"""
+        conflicts = find_duplicate_sources(self.data)
+        if not conflicts:
+            return True
+        shown = conflicts[:20]
+        detail = "\n".join(f"· {item['source']} → {' / '.join(item['targets'])}" for item in shown)
+        more = f"\n…（共 {len(conflicts)} 条，此处只显示前 20 条）" if len(conflicts) > 20 else ""
+        logger.info(f"[保存校验] 跨节点重复 source {len(conflicts)} 条")
+        answer = QMessageBox.question(
+            self, "源词冲突",
+            "以下源词出现在多个替换项里，处理时只有最后一个生效：\n\n"
+            f"{detail}{more}\n\n仍要保存吗？",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        return answer == QMessageBox.Yes
+
     def save_to_file(self, filename):
         try:
+            if not self.confirm_duplicate_sources():
+                return False
             json_str = json.dumps(self.data, ensure_ascii=False, indent=4)
             json_str = self._compact_leaf_nodes(json_str)
             with open(filename, 'w', encoding='utf-8') as f:
@@ -609,7 +670,7 @@ class SubtitleEditor(QMainWindow):
         path = self._get_path_from_item(item)
         logger.info(f"[add_replace_child_item] 父节点路径: {path}")
         default_item = {"word": "新子项", "enabled": True, "source": []}
-        dialog = ReplaceItemDialog(default_item, self)
+        dialog = ReplaceItemDialog(default_item, self, known_sources=self.collect_sources())
         if dialog.exec_() == QDialog.Accepted:
             new_item = dialog.get_data()
             def find_and_add(data_list, path_parts):
@@ -660,7 +721,7 @@ class SubtitleEditor(QMainWindow):
             else:
                 logger.info("[edit_replace_node] 对话框取消")
         else:
-            dialog = ReplaceItemDialog(node_data, self)
+            dialog = ReplaceItemDialog(node_data, self, known_sources=self.collect_sources())
             if dialog.exec_() == QDialog.Accepted:
                 new_data = dialog.get_data()
                 new_word = new_data.get("word")

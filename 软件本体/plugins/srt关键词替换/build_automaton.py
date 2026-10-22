@@ -70,6 +70,8 @@ class SubtitleRuleProcessor:
         self.replace_source_to_word: Dict[str, str] = {}
         self.automaton = None
         self._profanity_count = 0
+        # 跨节点重复 source：(source, 先出现的正确词, 后出现的正确词)，后者会覆盖前者
+        self.source_conflicts: List[tuple] = []
 
     def _get_json(self):
         if self.raw_config:
@@ -175,6 +177,15 @@ class SubtitleRuleProcessor:
                 sources = node.get("source", [])
                 self.replace_word_to_sources[correct] = sources
                 for src in sources:
+                    previous = self.replace_source_to_word.get(src)
+                    if previous is not None and previous != correct:
+                        # 不同节点的相同 source 会互相覆盖，这里记录并告警，避免规则冲突静默生效
+                        self.source_conflicts.append((src, previous, correct))
+                        print(
+                            f"警告：源词 {src!r} 同时出现在 {previous!r} 与 {correct!r} 下，"
+                            f"处理时按后者（{correct!r}）生效",
+                            file=sys.stderr,
+                        )
                     self.replace_source_to_word[src] = correct
             case "regex":
                 # 未来处理正则
@@ -429,6 +440,7 @@ class SubtitleRuleProcessor:
         self.repeat_rule_map = {}
         self.replace_word_to_sources = {}
         self.replace_source_to_word = {}
+        self.source_conflicts = []
         self._parse_delete_config()
         self._parse_replace_config()
         self._parse_repeat_config()

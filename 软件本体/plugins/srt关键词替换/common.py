@@ -32,6 +32,39 @@ def strip_cache_prefix(file_name):
     return CACHE_NAME_PREFIX_RE.sub('', os.path.basename(file_name))
 
 
+def find_duplicate_sources(rules):
+    """扫描 replace 树，找出**跨节点**重复的 source。
+
+    返回 `[{"source": "卡布", "targets": ["卡慕", "卡布"]}]`，`targets` 按出现顺序去重。
+    口径与主处理器一致：只统计 `enabled` 的节点，`group` 递归子项，其他类型忽略。
+    同一个替换项内部的重复不算冲突（本来就只防单个 item 内重复）。
+    """
+    owners = {}
+    order = []
+
+    def walk(node):
+        if not isinstance(node, dict) or not node.get("enabled", True):
+            return
+        node_type = node.get("type", "correction")
+        if node_type == "group":
+            for child in node.get("items", []) or []:
+                walk(child)
+            return
+        if node_type != "correction":
+            return
+        word = node.get("word")
+        for src in node.get("source", []) or []:
+            targets = owners.setdefault(src, [])
+            if word not in targets:
+                targets.append(word)
+            if src not in order:
+                order.append(src)
+
+    for node in rules.get("replace", []) or []:
+        walk(node)
+    return [{"source": src, "targets": owners[src]} for src in order if len(owners[src]) > 1]
+
+
 # 获取资源的绝对路径, 打包后默认返回只读目录, 容开发环境和 PyInstaller 打包后
 def get_path(relative_path=None, use_program_dir=False):
     """获取程序目录或资源文件的绝对路径。

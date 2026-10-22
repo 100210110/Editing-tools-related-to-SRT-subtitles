@@ -414,7 +414,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 - “启用”状态会写入 JSON 的 `enabled` 字段；主处理器在解析时跳过 `enabled=false` 的节点（`build_automaton.py:163-181`）。
 - 编辑器支持 `repeat` 规则的增删改（`514-556`），并在 Repeat 对话框提供语义 tooltip（外层启用、压缩与分隔独立、门槛按原始次数、分隔符作用）；保存后由主处理器解析并生效，见 5.4 与 6.5。
-- `ReplaceItemDialog` 只防止同一个 item 的 `source` 列表内重复（`108-115`），不检查不同 item/分组之间的源词冲突；主处理器后写入的映射会覆盖先写入的（`build_automaton.py:171-176`）。
+- `source` 冲突防护分三层：`ReplaceItemDialog.add_source()` 在添加时若该源词已属于别的替换项，先弹确认框（`known_sources` 由 `SubtitleEditor.collect_sources()` 汇总）；保存时 `confirm_duplicate_sources()` 扫描全局 source，把冲突（`源词 → 目标词列表`）列出来并询问是否继续，用户拒绝则不落盘；主处理器 `_process_node()` 在构建映射时记录 `source_conflicts` 并在 stderr 告警（后写入者生效的旧语义不变，`common.py` `find_duplicate_sources()`）。
 - 打包后“新建”把保存目标设为 `os.path.dirname(__file__)/subtitle_rules.json`（`214-218`）；在 PyInstaller 单文件模式下 `__file__` 可能位于临时解压目录，存在写入只读/临时目录的风险，**未在打包环境验证**。
 
 ### 5.6 SRT 加前缀流程
@@ -1151,7 +1151,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 低 | **损坏的 manifest 会让主程序启动崩溃**：`scan_plugins` 直接 `json.load`，无 try/except；`init_program` 也没有捕获（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:118-120`（`json.load` 已包在 `_load_manifest` 的 try/except 内）、`508`（单次扫描）、`544`（汇总告警）；`tests/test_scan_plugins.py` | 一个插件配置写错会阻止整个工具启动。建议逐个 manifest 捕获异常并跳过/提示 |
 | 低 | **`scan_plugins()` 重复调用**（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:508` | 多一次扫描，当前无功能影响；可删除一次 |
 | 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/build_automaton.py` `_resolve_overlaps()` | 某些重叠词删除/替换结果不符合“长词优先”直觉。已改为按「长度降序、起点升序」的区间调度，长词优先对任意起点组合成立 |
-| 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复 | `build_automaton.py:133-138`；`subtitle_rule_editor.py:108-115` | 规则冲突不易发现。建议保存时做全局冲突检测 |
+| 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复（已修复，见 CHANGELOG [2026-10-23]） | `build_automaton.py` `_process_node()`；`subtitle_rule_editor.py` `confirm_duplicate_sources()` | 规则冲突不易发现。现在构建时记录 `source_conflicts` 并告警、编辑器保存前列冲突并询问、添加源词时提前提示；覆盖语义本身不变 |
 | 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)` | `subtitle_rule_editor.py:214-218`（现状 `222`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。建议改用 `get_path(use_program_dir=True)`，与同文件 `178` 行一致 |
 | 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`** | `subtitle_rule_editor.py:852-857`；`srt关键词替换/__init__.py:66-90` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；建议统一返回/输出协议 |
 | 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数（已修复，见 CHANGELOG [2026-10-23]） | `load_zip.py:365-373` | 容易误用。建议删除或改为正式测试 |

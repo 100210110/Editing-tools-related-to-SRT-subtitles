@@ -95,6 +95,15 @@
 
 ### 修复
 
+- 检测跨节点重复 `source`（TODO #16）：`_process_node()` 在建立“源词 → 正确词”映射时比对既有映射，冲突则记入新属性 `source_conflicts`（`(源词, 先出现的正确词, 后出现的正确词)`）并在 stderr 打印告警；**覆盖语义保持不变**（仍然后写入者生效），只把“静默冲突”变成“可见冲突”（`软件本体/plugins/srt关键词替换/build_automaton.py`）。
+- `common.py` 新增 `find_duplicate_sources(rules)`：递归 `replace` 树（只统计 `enabled` 节点，与主处理器口径一致），返回 `[{"source": ..., "targets": [目标词...]}]`；同一替换项内部重复不算冲突（沿用 `remove_source`/`add_source` 的单项去重）（`软件本体/plugins/srt关键词替换/common.py`）。
+- 编辑器三层提示：`SubtitleEditor.collect_sources()` 汇总“源词 → 所属正确词”；新增 `confirm_duplicate_sources()`，`save_to_file()` 写盘前扫描，冲突时列出「· 源词 → A / B」并询问是否继续，选“否”则**不落盘**（返回 `False`）；`ReplaceItemDialog` 新增 `known_sources` 参数，`add_source()` 发现该源词已属于别的替换项时先确认（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
+- 出厂规则零冲突：`subtitle_rules.json` 与 `default_subtitle_rules.json` 扫描结果均为 0 条，测试固化该结论，避免以后改规则时无意引入冲突。
+- 新增 `tests/test_duplicate_sources.py`（11 项）：扫描函数 5 项（无冲突、跨节点冲突、同 item 重复不算、嵌套分组、禁用节点忽略）；处理端 3 项（`source_conflicts` 内容 + stderr 告警 + 后写入者生效、无冲突时为空、两个出厂 JSON 零冲突）；编辑器 3 项（冲突时选“否”不落盘、选“是”正常保存、`collect_sources()` 正确映射）。
+- **歧义说明**：TODO 写的是“发现重复则报错并列出冲突节点”。这里没有做成硬性拒绝（直接禁止保存），因为历史规则里可能存在用户刻意保留的“同源词多目标”写法，硬拦会让人无法保存任何改动；最终采用“列出冲突 + 询问，默认不保存”，既暴露问题又不锁死流程。
+- 已知局限：`source_conflicts` 只在重建自动机时产生，命中 pkl 缓存时为空（缓存载荷未含该字段，改动需升 `CACHE_SCHEMA_VERSION`）；因此冲突提醒以编辑器侧为准，处理端告警是“重建时才会出现”的兜底。
+- 归档自 `TODO.md` #16，编号不复用。
+
 - 重叠匹配改为**长词优先后全局选择**（TODO #15）：`_resolve_overlaps()` 原按 `(start 升序, end 降序)` 排序后线性过滤，只有“同起点”时才成立长词优先——起点更早的短词会先占位，把后面更长的词挤掉（`abcdef` 里 `ab`(0-2) 与 `bcde`(1-5) 只剩 `ab`）。现改为按 `(长度降序, 起点升序)` 的区间调度：先放最长匹配，再放与已选区间不冲突的，最后按起点升序交回调用方；长词优先对任意起点组合都成立，且结果与自动机遍历顺序无关（`软件本体/plugins/srt关键词替换/build_automaton.py`）。
 - 等长重叠的平局规则明确为“起点更早者优先”，删除与替换不再可能同时命中同一段文本；被挤掉的重叠短词也不计入敏感词次数。
 - 新增 `tests/test_overlap.py`（7 项）：后起长词胜过先起短词、包含关系丢短词、同起点取长词、互不重叠全保留、等长重叠取先起点、`_resolve_overlaps` 正序/逆序输入结果一致、被挤掉的敏感词不计数。
