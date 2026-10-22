@@ -46,7 +46,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 多按钮插件与按钮级 `event` 路由 | `软件本体/插件调度主程序.py:138-184`、`559-571`；`软件本体/plugins/srt关键词替换/__init__.py:66-78` | 已实现 |
 | 插件导入（zip）、版本比较、解压安装、重启刷新 | `软件本体/load_zip.py:38-165`；`软件本体/插件调度主程序.py:530-552` | 已实现 |
 | 缓存式链式处理与统一导出 | `软件本体/插件调度主程序.py:298-337`、`375-398`、`573-582` | 已实现 |
-| SRT 文件名作为说话人前缀 | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:12-75` | 已实现 |
+| SRT 文件名作为说话人前缀 | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:13-172` | 已实现（按空行分块、只在首个文本行加、按文件名幂等） |
 | 敏感词删除、错词替换、重复词压缩、删除次数统计（“文明小助手”） | `软件本体/plugins/srt关键词替换/build_automaton.py:56-403`、`srt_keyword_editor.py:32-139` | 已实现（含 `repeat` 压缩与可选分隔）；`regex` 规则未实现，见 6.5、11 节 |
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
@@ -175,7 +175,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | `软件本体/output/` | 最终导出目录；由“导出/导出并打开位置”按钮写入 | `插件调度主程序.py:573-582` |
 | `plugins/<插件目录>/manifest.json` | 插件元数据与按钮声明；主程序扫描的唯一入口条件 | `插件调度主程序.py:130-204` |
 | `plugins/srt关键词替换/*` | 规则驱动的字幕清洗插件；含 PyQt5 规则编辑器 | 见 5.4、5.5 |
-| `plugins/srt加前缀/*` | 最简单的插件样板：读 JSON、处理 SRT、写缓存、返回 JSON | `自动给srt加前缀.py:28-75` |
+| `plugins/srt加前缀/*` | 最简单的插件样板：读 JSON、按空行分块处理 SRT、写缓存、返回 JSON | `自动给srt加前缀.py:102-172` |
 | `plugins/ass转码透明底视频/*` | 用 pyass 取时长、用 FFmpeg 渲染透明 MOV | 见 5.7 |
 | `plugins/测试插件/*` | PySimpleGUI 弹窗与报错测试，用于验证协议/按钮事件 | `测试插件/__init__.py:14-78` |
 
@@ -417,14 +417,14 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 | 步骤 | 行为 | 代码位置 |
 |---|---|---|
-| 1 | 从 stdin 读取 JSON，取 `output_path` 与 `pending_file_lists` | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:28-46` |
-| 2 | 只处理后缀为 `.srt`（大小写不敏感）的路径；其他路径打印跳过 | `50-66` |
-| 3 | 用输入文件名（不含扩展名）加中文全角冒号 `：` 作为前缀 | `53` |
-| 4 | 按 `range(2, len(lines), 4)` 在每四行的第三行（文本行）前插入前缀 | `19-20` |
-| 5 | 写入 `cache/output/<原 basename>` | `55-61` |
-| 6 | stdout 返回 `status`、`processed`（注意：这里用的是输入文件数，不是成功数）、`completed_output_lists`、`popup: False` | `68-74` |
+| 1 | 从 stdin 读取 JSON，取 `output_path` 与 `pending_file_lists` | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:102-118` |
+| 2 | 只处理后缀为 `.srt`（大小写不敏感）的路径；其他路径打印跳过并计入 `skipped` | `131-136` |
+| 3 | 用输入文件名（不含扩展名）加中文全角冒号 `：` 作为前缀 | `137` |
+| 4 | 按**空行分块**（连续空行归一），块内用 `TIME_LINE_RE` 定位时间轴行（`,` / `.` 均接受，序号行可缺失），只给**时间轴下一行**（即第一个文本行）加前缀；块内其余文本行不动 | `13`、`20-58` |
+| 5 | 写入 `cache/output/<原 basename>`；幂等跳过时也写一份原样副本 | `141-158` |
+| 6 | stdout 返回 `status`、`processed`（成功写入数，幂等跳过计入）、`total`、`skipped`（非 SRT + 幂等跳过）、`failed`（读取/写入异常、无有效块）、`completed_output_lists`、`popup: False` | `161-172` |
 
-该插件假设 SRT 严格为“序号 / 时间轴 / 单行文本 / 空行”四行结构；多行字幕、缺少空行、时间轴后有多行文本时，插入位置会错位。重复运行会把文件名前缀再次叠加，而不是幂等处理。
+块识别与失败口径：按空行分块，块内没有时间轴行的块**原样保留、不加前缀**，不计入有效块；有效块数为 0（空文件、纯文本、只有空白）时抛 `SrtFormatError`，该文件计入 `failed` 且不写输出。幂等判断严格匹配“当前文件名 + `：`”，且只看第一个文本行；其他 `XXX：` 前缀照常叠加。读取用 `utf-8-sig`，写出 `utf-8` 无 BOM、行尾固定 `\n`。
 
 ### 5.7 ASS 转透明底视频流程
 
@@ -634,7 +634,10 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `status` | string/bool | 插件自定义；关键词插件用 `"ok"`，`__init__.py` 错误时用 `false` |
-| `processed` | int | 成功处理数量（不同插件口径不完全一致） |
+| `processed` | int | 成功处理数量（不同插件口径不完全一致；`srt加前缀` 现为“成功写入 cache 的文件数”，幂等跳过也计入） |
+| `total` | int | 输入文件总数（含非 SRT 与失败项）；**仅 `srt加前缀` 插件当前使用** |
+| `skipped` | int | 跳过数（非 `.srt` 文件 + 幂等跳过的 SRT）；**仅 `srt加前缀` 插件当前使用**，与 `processed` 有重叠 |
+| `failed` | int | 失败数（读取异常、写入异常、无有效字幕块）；**仅 `srt加前缀` 插件当前使用** |
 | `completed_output_lists` | string[] | 处理后的文件路径，用于替换主程序 `FILE_LIST` |
 | `popup` | bool/object | `false` 不弹窗；对象 `{title, message}` 由主程序弹窗 |
 
@@ -744,7 +747,7 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 | `SubtitleRuleProcessor.get_profanity_count()` | `build_automaton.py:117-119` | 读取单文件计数 | 无 → int |
 | `srt_keyword_editor.main(params)` | `srt_keyword_editor.py:63-139` | 关键词插件主流程 | 请求 dict → 写文件 + stdout JSON |
 | `subtitle_rule_editor.run()` | `subtitle_rule_editor.py:852-857` | 启动 PyQt5 编辑器 | 无 → GUI |
-| `add_char_to_srt(srt_path, char, output_path=None)` | `自动给srt加前缀.py:12-26` | 给 SRT 文本行加前缀 | 文件路径 → 输出文件 |
+| `add_char_to_srt(srt_path, char, output_path=None)` | `自动给srt加前缀.py:61-99` | 给每个字幕块的首个文本行加前缀 | 文件路径 → `(块数, 是否改动过)`；无有效块时抛 `SrtFormatError` |
 | `SubtitleProcessor.export_transparent_video(output_video_path, fps=60)` | `ass转码透明底视频.py:109-189` | 调 FFmpeg 生成透明 MOV | ASS 路径 → MOV 文件 |
 | `PluginInstaller.check_version_and_install()` | `load_zip.py:84-118` | 比较版本并安装 | 无 → bool（但存在误报，见 11 节） |
 
@@ -918,7 +921,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 ### 9.5 测试现状
 
-> 2026-10-22 更新：已建立 pytest 框架并固化 5 组回归。以下前两条为勘察期结论，保留原记述；当前状态见本节末尾「当前状态」。
+> 2026-10-22 更新：已建立 pytest 框架并固化 6 组回归。以下前两条为勘察期结论，保留原记述；当前状态见本节末尾「当前状态」。
 
 - **（勘察期结论，已不成立）没有自动化测试**：未发现 `tests/`、pytest/unittest 用例、CI 配置。
 - 存在若干临时/手工测试入口：
@@ -929,9 +932,9 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 **当前状态（2026-10-22）**：
 
-- 已建立 `tests/`（pytest，60 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **59 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
+- 已建立 `tests/`（pytest，82 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **81 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
 - `tests/conftest.py` 通过 `importlib` 按路径加载被测模块以兼容中文目录；`load_zip` 的 `get_path` 与弹窗在 fixture 内 monkeypatch，规则 JSON/pkl 全部限制在 `tmp_path`，因此测试不读写仓库内运行产物。
-- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
+- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，22 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
 - 仍无 CI 配置；上述手工入口照旧存在。
 
 ### 9.6 建议的冒烟测试清单
@@ -941,7 +944,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 | 启动 | 开发模式启动主程序 | 窗口出现，底部显示 1.3.0，插件按钮按类别分组 |
 | 插件发现 | 查看 `srt加前缀`、`srt关键词替换`、`测试插件`、`ass转码透明底视频` | 四个插件均出现（ass 插件即使无 FFmpeg 也应能被扫描） |
 | 拖拽 | 拖入 1 个 SRT + 路径含空格的 SRT | 列表出现两项且路径完整 |
-| 前缀 | 点击“srt加前缀”后导出 | 字幕文本前有 `文件名：` |
+| 前缀 | 点击“srt加前缀”后导出 | 字幕文本前有 `文件名：`；多行字幕只在第一行加；对同一批再点一次不叠加（`total`/`processed`/`skipped`/`failed` 与日志中的“已带当前文件名前缀”一致） |
 | 关键词 | 点击“srt关键词替换” | 敏感词被删，弹窗显示统计 |
 | 规则编辑器 | 点击“修改配置”，新增一条替换，保存 | JSON 更新；再次处理时生效 |
 | 缓存 | 连续执行两个 SRT 插件 | 第二个插件处理的是第一个插件的输出 |
@@ -1105,7 +1108,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 中 | **ASS 插件缺少 FFmpeg**：代码要求 `ffmpeg/bin/ffmpeg.exe`，仓库该目录为空，发布包中也未发现 FFmpeg | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`；目录清单 | 源码环境下 ASS 功能不可用。建议文档说明外部依赖，或在发布包中附带并校验版本 |
 | 中 | **ASS 插件未出现在现有发布产物** | `v1.x/plugins` 与 `发布zip/` 清单均无该插件 | 功能是否对用户发布、如何分发**未确认**；接手时需确认发布策略 |
 | 中 | **主界面在插件运行期间阻塞**：`proc.communicate()` 在 UI 事件循环内同步等待，无超时、无取消、无进度 | `软件本体/插件调度主程序.py:330-337`、`485-587` | ASS 渲染或大批量 SRT 时窗口“无响应”。建议改为线程/进程异步 + 进度回传，或至少加忙碌提示 |
-| 中 | **SRT 前缀插件假设固定四行结构**：`range(2, len(lines), 4)`，多行字幕会错位；重复运行会叠加前缀；`processed` 统计的是输入数而非成功数 | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:19-20`、`50-74` | 真实字幕（多行、样式标签、缺空行）可能被破坏。建议按空行分块解析，并记录成功数 |
+| 中 | **SRT 前缀插件假设固定四行结构**：`range(2, len(lines), 4)`，多行字幕会错位；重复运行会叠加前缀；`processed` 统计的是输入数而非成功数（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:19-20`、`50-74`（行号已随 2026-10-22 重写失效，现状见 5.6） | 真实字幕（多行、样式标签、缺空行）可能被破坏。建议按空行分块解析，并记录成功数 |
 | 中 | **同名文件在缓存中互相覆盖**：两个插件都写 `cache/output/<basename>`；不同目录的同名 SRT 会覆盖 | `srt_keyword_editor.py:104-108`；`自动给srt加前缀.py:55-61`；`插件调度主程序.py:375-387` | 链式处理方便，但批量处理多目录时可能丢结果。建议保留相对路径或加哈希前缀 |
 | 低 | **损坏的 manifest 会让主程序启动崩溃**：`scan_plugins` 直接 `json.load`，无 try/except；`init_program` 也没有捕获 | `软件本体/插件调度主程序.py:130-134`、`438-452` | 一个插件配置写错会阻止整个工具启动。建议逐个 manifest 捕获异常并跳过/提示 |
 | 低 | **`scan_plugins()` 重复调用** | `软件本体/插件调度主程序.py:438`、`448` | 多一次扫描，当前无功能影响；可删除一次 |
