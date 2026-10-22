@@ -1,1 +1,10 @@
+# Re工具箱 开发依赖（dev + build）
+# 安装：pip install -r requirements-dev.txt（会一并装上 requirements.txt 的 runtime 依赖）
+
+-r requirements.txt
+
+# test
 pytest==9.1.1
+
+# build
+pyinstaller==6.20.0

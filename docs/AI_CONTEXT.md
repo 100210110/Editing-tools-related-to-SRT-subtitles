@@ -87,19 +87,19 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 ### 2.1 技术栈总览
 
-以下版本来自工作区 `.venv` 的实际安装记录；仓库内没有 `requirements.txt`、`pyproject.toml` 或 `setup.py`，因此**这些版本是当前开发环境的快照，不是项目声明的依赖约束**。
+以下版本已落在仓库根级 `requirements.txt`（runtime）与 `requirements-dev.txt`（test/build）中，均严格 `==` 固定；两者都是公开 PyPI 可安装的包，无需私有源。`pyproject.toml`/`setup.py` 仍然没有——本项目是应用而非待发布包。
 
 | 类别 | 技术 / 包 | 版本 | 用途 | 依据 |
 |---|---|---|---|---|
 | 语言 | Python | 3.11.9 | 主程序与全部插件 | `.venv/pyvenv.cfg` |
-| 主 GUI | PySimpleGUI | 6.0 | 主窗口、按钮、弹窗、日志 | `软件本体/插件调度主程序.py:1`；`.venv/Lib/site-packages` |
+| 主 GUI | PySimpleGUI | 6.0 | 主窗口、按钮、弹窗、日志 | `软件本体/插件调度主程序.py:1`；`requirements.txt`（官方 PyPI，LGPLv3，无授权限制） |
 | 拖拽 | tkinterdnd2 | 0.4.3 | 文件拖放到列表框 | `软件本体/插件调度主程序.py:2` |
 | 规则编辑器 GUI | PyQt5 | 5.15.11 | 树形规则编辑窗口 | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:5-11` |
-| PyQt 运行时 | PyQt5-Qt5 / PyQt5_sip | 5.15.2 / 12.18.0 | PyQt5 依赖 | `.venv/Lib/site-packages` |
+| PyQt 运行时 | PyQt5-Qt5 / PyQt5_sip | 5.15.2 / 12.18.0 | PyQt5 依赖 | `.venv/Lib/site-packages`；间接依赖，未写入 `requirements.txt`（干净环境实测 `sip` 为 12.20.0） |
 | 多模式匹配 | pyahocorasick（导入名 `ahocorasick`） | 2.3.1 | Aho-Corasick 自动机 | `软件本体/plugins/srt关键词替换/build_automaton.py:3` |
 | ASS 解析 | pyass | 0.1.4 | 读取 ASS 事件、结束时间 | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:5` |
 | 版本比较 | packaging | 26.1 | 插件版本排序比较 | `软件本体/load_zip.py:7` |
-| 打包 | PyInstaller | 6.20.0 | 生成单文件 exe | `.venv/old_requirements.txt`、`打包exe指令.txt:1` |
+| 打包 | PyInstaller | 6.20.0 | 生成单文件 exe | `requirements-dev.txt`、`打包exe指令.txt:1` |
 | 媒体处理 | FFmpeg（外部可执行文件） | 版本未知 | ASS 渲染透明底视频 | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`、`137-149` |
 | 标准库 | `subprocess`、`zipfile`、`pickle`、`logging`、`json`、`re`、`shutil`、`io` | Python 3.11 自带 | 进程、安装、缓存、日志、解析 | 各模块 import |
 | 系统能力 | `notepad.exe`、`explorer.exe`、`CREATE_NEW_CONSOLE` | Windows | 打开配置、打开导出目录、FFmpeg 子进程 | `软件本体/插件调度主程序.py:568`、`580`；`ass转码透明底视频.py:156-164` |
@@ -108,7 +108,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 - **操作系统**：Windows。代码使用了 `notepad.exe`、`explorer.exe`、`subprocess.CREATE_NEW_CONSOLE`、`plugins\\{plugin_id}` 等 Windows 专有写法（`软件本体/插件调度主程序.py:568-580`、`load_zip.py:77`、`ass转码透明底视频.py:156-164`）。
 - **Python**：开发/打包建议 Python 3.11.x；代码使用 `match/case`（3.10+）与 `sys.stdin.reconfigure`（3.7+），因此在 3.10 以下无法运行。
-- **开发依赖**：以实际 import 为准，至少需要 PySimpleGUI、tkinterdnd2、pyahocorasick、pyass、packaging、PyQt5、PyInstaller。
+- **开发依赖**：以实际 import 为准，runtime 为 PySimpleGUI、tkinterdnd2、pyahocorasick、pyass、packaging、PyQt5；test/build 为 pytest、PyInstaller。直接依赖的固定版本见 `requirements.txt` / `requirements-dev.txt`。
 - **外部二进制**：ASS 插件运行时必须存在 FFmpeg（见 8.5）；仓库内 `plugins/ass转码透明底视频/ffmpeg/bin/` 为空目录。
 - **写权限**：程序目录下需要可写 `cache/output`、`cache/temp`、`output`、插件规则文件与插件日志；若安装到 `Program Files` 等只读目录，相关功能会失败。
 - **GUI 环境**：PySimpleGUI/tkinter 需要桌面会话；PyQt5 编辑器需要 Qt 运行库。
@@ -118,6 +118,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 - 没有 Web 框架、HTTP API、RPC、数据库或 ORM。
 - 没有 `os.environ` / `.env` 读取（全目录 grep 未发现）。
 - 没有网络请求代码；`config.json` 中的 URL 只是作者联系方式，不会被程序访问。
+- 历史依赖清单里未被源码 import 的 `pysub-parser`、`Unidecode` 已从 `requirements.txt` 移除（2026-10-22）。
 
 ---
 
@@ -186,15 +187,17 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | `Editing-tools-related-to-SRT-subtitles/LICENSE` | MIT License，Copyright (c) 2026 realcan |
 | `Editing-tools-related-to-SRT-subtitles/logo/` | 图标资源（`icon.ico`、`画板1.png`、`绪山真寻的本体.ico`） |
 | `Editing-tools-related-to-SRT-subtitles/docs/` | 交接文档目录（`AI_CONTEXT.md`、`TODO.md`、`CHANGELOG.md`），已随代码入库并由 git 跟踪 |
+| `Editing-tools-related-to-SRT-subtitles/requirements.txt` | runtime 直接依赖，严格 `==` 固定（2026-10-22 建立） |
+| `Editing-tools-related-to-SRT-subtitles/requirements-dev.txt` | `-r requirements.txt` + test（pytest）+ build（pyinstaller） |
 | `打包exe指令.txt` | 主程序 PyInstaller 命令，版本名未更新 |
-| `.venv/old_requirements.txt` | UTF-16 编码的旧依赖清单；不含 PyQt5，含未使用的 `pysub-parser`、`Unidecode` |
+| `.venv/old_requirements.txt` | UTF-16 编码的历史依赖清单，**已由仓库根级 `requirements.txt` 取代**；不含 PyQt5，含未使用的 `pysub-parser`、`Unidecode` |
 
 ### 3.4 仓库卫生现状
 
 - git 只跟踪 31 个文件（`git ls-files`）。
 - `cache/temp/ffmpeg-*.log` 四个日志被 git 跟踪；`subtitle_rules.pkl` 也被跟踪（`git ls-files`）。
 - `plugins/srt关键词替换/plugin_log/` 当前是 untracked（`git status` 显示 `?? .../plugin_log/`），且仓库没有 `.gitignore`。
-- 测试基础设施：勘察时（2026-10-22 前）没有 `tests/`、`pytest.ini`、`tox.ini`、GitHub Actions；现已建立 `tests/`（pytest）与 `requirements-dev.txt`，仍无 CI（见 9.5）。
+- 测试基础设施：勘察时（2026-10-22 前）没有 `tests/`、`pytest.ini`、`tox.ini`、GitHub Actions；现已建立 `tests/`（pytest）与 `requirements.txt` / `requirements-dev.txt`，仍无 CI（见 9.5）。
 
 ---
 
@@ -850,25 +853,22 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 
 ### 9.1 开发环境准备
 
-工作区已有一个 Python 3.11.9 的 `.venv`。仓库内没有正式依赖文件；按源码实际 import，最小依赖为：
+仓库根级已有正式依赖清单（2026-10-22 建立）：`requirements.txt` 为 runtime，`requirements-dev.txt` 在其上追加 test 与 build。新环境按下面两步装即可（Windows + Python 3.11.x）：
 
 ```bash
-# 在 E:/projects/ReToolbox 下
-.venv/Scripts/python.exe -m pip install \
-  pysimplegui==6.0 \
-  tkinterdnd2==0.4.3 \
-  pyahocorasick==2.3.1 \
-  pyass==0.1.4 \
-  packaging==26.1 \
-  PyQt5==5.15.11 \
-  pyinstaller==6.20.0
+# 仅运行工具箱
+pip install -r requirements.txt
+
+# 开发 / 测试 / 打包（含 -r requirements.txt）
+pip install -r requirements-dev.txt
 ```
 
 注意：
 
-- `.venv/old_requirements.txt` 是 UTF-16 编码，列出了大部分依赖，但**没有 PyQt5**；同时包含源码未使用的 `pysub-parser`、`Unidecode`。
-- 若只运行主程序 + 前缀/关键词插件，PyQt5 只在打开规则编辑器时需要；若打包关键词插件，PyQt5 必须安装。
-- PySimpleGUI 6.0 的实际安装/授权方式**未确认**，新环境请以官方渠道为准。
+- 只列直接依赖并严格 `==` 固定；`PyQt5-Qt5`、`PyQt5-sip`、`altgraph`、`pefile`、`pyinstaller-hooks-contrib` 等间接依赖交给 pip 按上游约束解析，因此新环境的间接依赖版本可能与现有 `.venv` 略有差异（实测 `PyQt5_sip` 12.18.0 → 12.20.0、`pyinstaller-hooks-contrib` 2026.4 → 2026.9）。
+- `.venv/old_requirements.txt` 是 UTF-16 编码的历史清单，**已由 `requirements.txt` 取代**，不要再按它安装：它缺少 PyQt5，并含源码未使用的 `pysub-parser`、`Unidecode`。
+- 若只运行主程序 + 前缀/关键词插件，PyQt5 只在打开规则编辑器时需要；若打包关键词插件，PyQt5 必须安装——已包含在 `requirements.txt` 中。
+- PySimpleGUI 6.0 为官方 PyPI 上的 LGPLv3 版本（纯 Python wheel），`pip install` 直接可用，不需要授权码或私有源。
 
 ### 9.2 运行
 
@@ -878,9 +878,11 @@ cd "E:/projects/ReToolbox"
 .venv/Scripts/python.exe "Editing-tools-related-to-SRT-subtitles/软件本体/插件调度主程序.py"
 ```
 
-插件在开发模式下由主程序用 `sys.executable` 启动，因此主程序必须运行在安装了依赖的 Python 环境中。
+插件在开发模式下由主程序用 `sys.executable` 启动，因此主程序必须运行在已安装 `requirements.txt` 的 Python 环境中。
 
 ### 9.3 构建主程序
+
+先装打包依赖：`pip install -r requirements-dev.txt`（含 `pyinstaller==6.20.0`）。
 
 仓库给出的命令（`打包exe指令.txt:1`）：
 
@@ -1080,7 +1082,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 
 - 无 linter/formatter 配置（flake8、ruff、black、prettier 等）。
 - 无类型检查配置；少量类型标注（`List[str]`、`Dict[str, dict]`）但不完整。
-- 无统一依赖清单、无锁文件、无 `pyproject.toml`。
+- 依赖：直接依赖已由 `requirements.txt` / `requirements-dev.txt` 固定版本；仍无锁文件（`pip freeze` 快照）、无 `pyproject.toml`。
 - `get_path()` 在四个文件中重复实现，默认参数不一致。
 - 业务常量（默认规则）在代码与 JSON 中重复维护。
 
@@ -1098,7 +1100,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 中 | **`repeat` 规则完全未生效**：编辑器可增删改并保存，但 `_parse_repeat_config()` 是 `pass` 且从未被 `load_rules()` 调用；AC 自动机只加入 delete/replace（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt关键词替换/build_automaton.py:121-123`、`161-173`、`280-289`；`subtitle_rule_editor.py:315-327`、`508-550` | 用户会以为“重复词压缩”已生效。建议实现、或在编辑器中明确标注“未启用/预留”并禁用 |
 | 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
 | 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪**（已修复，见 CHANGELOG [2026-10-22]） | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
-| 中 | **无正式依赖清单**：仓库没有 `requirements.txt`/`pyproject.toml`；`.venv/old_requirements.txt` 缺少 PyQt5，且包含未使用包 | `.venv/old_requirements.txt`；`subtitle_rule_editor.py:5-11`；`pysub-parser`/`Unidecode` 未被 import | 新环境难以复现，规则编辑器容易因缺 PyQt5 失败。建议整理最小依赖清单并区分 runtime/dev/build |
+| 中 | **无正式依赖清单**：仓库没有 `requirements.txt`/`pyproject.toml`；`.venv/old_requirements.txt` 缺少 PyQt5，且包含未使用包（已修复，见 CHANGELOG [2026-10-22]） | `.venv/old_requirements.txt`；`subtitle_rule_editor.py:5-11`；`pysub-parser`/`Unidecode` 未被 import | 新环境难以复现，规则编辑器容易因缺 PyQt5 失败。建议整理最小依赖清单并区分 runtime/dev/build |
 | 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者 | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
 | 中 | **ASS 插件缺少 FFmpeg**：代码要求 `ffmpeg/bin/ffmpeg.exe`，仓库该目录为空，发布包中也未发现 FFmpeg | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`；目录清单 | 源码环境下 ASS 功能不可用。建议文档说明外部依赖，或在发布包中附带并校验版本 |
 | 中 | **ASS 插件未出现在现有发布产物** | `v1.x/plugins` 与 `发布zip/` 清单均无该插件 | 功能是否对用户发布、如何分发**未确认**；接手时需确认发布策略 |
@@ -1176,7 +1178,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | A3 | 插件 exe 的准确 PyInstaller 命令、`--add-data` 与依赖收集方式 | 仓库无插件打包脚本/`.spec`；仅能从发布包推断 |
 | A4 | ASS 插件是否曾发布、通过何种渠道分发 | 现有 `v1.x/` 与 `发布zip/` 均未发现该插件 |
 | A5 | FFmpeg 的最低版本要求与推荐构建 | 代码只调用滤镜/编码器，未声明版本 |
-| A6 | PySimpleGUI 6.0 的授权/安装限制 | 未查阅官方许可；新环境安装前需确认 |
+| A6 | PySimpleGUI 6.0 的授权/安装限制 | **已确认（2026-10-22）**：官方 PyPI 上存在 6.0（以及后续 6.2/6.3），wheel 为 `py3-none-any` 纯 Python 包，License 为 LGPLv3，无授权码/注册校验，安装方式就是普通 `pip install PySimpleGUI==6.0` |
 | A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | 依赖 PyInstaller 单文件模式的 `__file__` 行为，未实测 |
 | A8 | `default_subtitle_rules.json` 与 `build_automaton.py` 内嵌默认配置是否逐字一致 | 内容近似，未做 diff 比对 |
 | A9 | 旧版 `v1.0.0/v1.1.0b` 源码与当前实现的完整差异 | 仅抽查了目录与部分文件，未逐行 diff |

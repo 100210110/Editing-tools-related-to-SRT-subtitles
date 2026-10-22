@@ -1,0 +1,17 @@
+# Re工具箱 运行时依赖（runtime）
+#
+# 环境要求
+# - Python 3.11.x（代码使用 match/case，最低 3.10；3.11 为当前开发/打包版本）
+# - 仅 Windows（notepad.exe、explorer.exe、CREATE_NEW_CONSOLE、TkDnD 原生库）
+#
+# 说明
+# - 只列直接依赖；间接依赖（PyQt5-Qt5、PyQt5-sip 等）由 pip 按上游约束解析
+# - 版本取自 2026-10-22 开发环境 .venv 的实际安装，均已确认可从 PyPI 安装
+# - PySimpleGUI 6.0 为官方 PyPI 上的 LGPLv3 版本，无需单独授权或私有源
+
+PySimpleGUI==6.0
+tkinterdnd2==0.4.3
+pyahocorasick==2.3.1
+pyass==0.1.4
+packaging==26.1
+PyQt5==5.15.11

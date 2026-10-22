@@ -1,6 +1,27 @@
 # Editing-tools-related-to-SRT-subtitles
 跳过做字幕重复工作的小工具
 
+## 环境准备与安装
+- 系统：Windows（用到 `notepad.exe`、`explorer.exe`、`CREATE_NEW_CONSOLE` 与 TkDnD 原生库）
+- Python：3.11.x（代码使用 `match/case`，低于 3.10 无法运行）
+
+只运行工具箱（runtime 依赖，含 PyQt5 规则编辑器）：
+
+```bash
+pip install -r requirements.txt
+```
+
+开发、测试或打包（在 runtime 之上追加 pytest 与 PyInstaller）：
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+## 打包 exe
+打包命令见工作区根目录的 `打包exe指令.txt`（该文件不入库，位于本仓库的上一级目录）；命令需在 `软件本体/` 目录内执行，`icon.ico` 与 `插件调度主程序.py` 都是相对路径。
+
+> 本 README 的规则配置等段落仍待与当前实现对齐（见 `docs/TODO.md` #7），以 `subtitle_rules.json` 与规则编辑器为准。
+
 ## 启动工具箱主程序
 - 启动后的大白框是拖动文件进去的，拖完后可以自己点选移除
 - 会自动识别插件目录，存在对应的插件配置文件将会添加对应按钮

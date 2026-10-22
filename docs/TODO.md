@@ -12,7 +12,7 @@
 - 当前最大编号：25。
 
 > 来源：`AI_CONTEXT.md` §11 共 24 行（高 2 / 中 10 / 低 12），编号 1–24 与表格行一一对应；优先级按该节级别映射。
-> 归档：#1、#2、#3、#5 已于 2026-10-22 完成并移入 `CHANGELOG.md`；#25（手工冒烟新增）同日完成并移入。编号均不复用。同日「可选增强 / 测试补强」8 项（5 项自动化回归 + 3 项手工冒烟）亦已归档，该分类不占编号。
+> 归档：#1、#2、#3、#5、#6、#25 已于 2026-10-22 完成并移入 `CHANGELOG.md`；同日「可选增强 / 测试补强」8 项（5 项自动化回归 + 3 项手工冒烟）亦已归档，该分类不占编号。编号均不复用。
 
 ---
 
@@ -30,22 +30,6 @@
 **关联文件**：
 - `软件本体/plugins/srt关键词替换/build_automaton.py`
 - `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`
-
----
-
-### 6. 建立正式依赖清单
-
-**背景**：仓库没有 `requirements.txt` / `pyproject.toml`，`.venv/old_requirements.txt` 缺少 PyQt5 且含未使用包，新环境难以复现（`AI_CONTEXT.md` §11「无正式依赖清单」）。建议按 §11.1 第 3 步处理。
-
-**待办**：
-- [ ] 新增根级 `requirements.txt` 或 `pyproject.toml`，按 runtime / dev / build 分组并固定版本
-- [ ] 补入 PyQt5，确认无隐式引用后移除 `pysub-parser`、`Unidecode`
-- [ ] 在 README / 构建说明中给出可复现安装命令，并按 §9.6「启动」项验证
-
-**关联文件**：
-- `.venv/old_requirements.txt`
-- `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`
-- `打包exe指令.txt`
 
 ---
 

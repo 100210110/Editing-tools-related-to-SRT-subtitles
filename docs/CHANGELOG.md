@@ -33,6 +33,17 @@
 - 手工冒烟结论（2026-10-22，作者在真机执行，3 项全部通过）：**插件导入 GUI**——正常 zip 可装、非 zip/缺 `manifest.json` 失败、同版本与低版本重装询问的“取消/确认”分支，失败项保留在 `FILE_LIST` 并弹窗、取消项保留且不报错；**repeat 规则 GUI/真实缓存**——规则编辑器新增/修改/禁用 repeat 规则并保存后，主程序连续处理两个 SRT 的输出、弹窗统计、编辑器提示与真实 `subtitle_rules.pkl` 的命中/失效均符合预期；**主程序真实缓存**——首次处理生成 pkl、第二次命中不重建、修改 `subtitle_rules.json` 后自动失效重建，且 repeat 输出一致。
 - 归档自 `TODO.md`「可选增强 / 测试补强」全部 8 项（5 项自动化回归 + 3 项 GUI/真机手工冒烟）；该分类已清空，`TODO.md` 的「可选增强（长期）」小节保留但标注“当前无条目”。
 
+### 变更
+
+- 新建根级 `requirements.txt`（runtime，严格 `==` 固定）：`PySimpleGUI==6.0`、`tkinterdnd2==0.4.3`、`pyahocorasick==2.3.1`、`pyass==0.1.4`、`packaging==26.1`、`PyQt5==5.15.11`；只列直接依赖，`PyQt5-Qt5`/`PyQt5-sip` 等间接依赖交给 pip 按上游约束解析。
+- 调整 `requirements-dev.txt` 为 `-r requirements.txt` + `# test`（`pytest==9.1.1`）+ `# build`（`pyinstaller==6.20.0`），原先只有 pytest 一行。
+- 补入 `PyQt5`：`.venv/old_requirements.txt` 一直缺该包，而规则编辑器 (`subtitle_rule_editor.py:5-11`) 依赖它，新环境按旧清单安装后打开编辑器会 `ModuleNotFoundError`。
+- 移除 `pysub-parser`、`Unidecode`：AST 扫描 `软件本体/` 下 12 个 `.py` 的全部 import，两者零引用（全工作区 grep 也只在文档中出现），确认无隐式引用后从清单剔除（`Unidecode` 原为 `pysub-parser` 的传递依赖，一并消失）。
+- 依赖核实结论（2026-10-22）：`PySimpleGUI` 6.0 在公开 PyPI 上存在（同页另有 6.2/6.3），wheel 为 `py3-none-any` 纯 Python 包，License 为 **LGPLv3**，无授权码或注册校验，普通 `pip install` 即可，**附录 A6 的授权疑问就此关闭**；`packaging` 实际安装 26.1，公开索引上已是 26.x 系列（最新 26.3），AI_CONTEXT §2.1 原记录的 26.1 与实测一致，无需更正；`pyass` 确认为 `xIceArcher/pyass`（ASS 解析库），非同名包；`PyQt5` 5.15.11 附带 `PyQt5-Qt5` 5.15.2 与 `PyQt5_sip` 12.18.0。
+- README 新增「环境准备与安装」（Windows + Python 3.11.x、runtime/dev 两条安装命令）与「打包 exe」（指向工作区根目录的 `打包exe指令.txt`，说明需在 `软件本体/` 内执行）两节；规则与插件说明等段落未动，留给 #7。
+- 验证结论（2026-10-22）：`pip install -r requirements.txt --dry-run --ignore-installed` 与 dev 版均解析通过（pip 26.1.2）；另建干净 venv（Python 3.11.9）实装 `requirements-dev.txt`，6 个包逐个 import 成功、`tkinterdnd2` 的 TkDnD 原生库初始化成功、主程序启动不报错、`pytest tests/` 为 **59 passed / 1 skipped**，与开发环境一致。新环境间接依赖存在小幅漂移：`PyQt5_sip` 12.18.0 → 12.20.0、`pyinstaller-hooks-contrib` 2026.4 → 2026.9（均在 PyQt5/PyInstaller 的上游约束内），未做锁定。
+- 归档自 `TODO.md` #6，编号不复用。
+
 ### 修复
 
 - 插件安装前校验 manifest 的 `plugin_id`（未提供时回退 `name`）：仅允许字母、数字、下划线、连字符与中文，拒绝空值、`.`/`..`、路径分隔符、盘符与绝对路径，校验失败时中止安装并提示（`软件本体/load_zip.py`）。
@@ -65,3 +76,4 @@
 - TODO 初始化后已完成 #1、#2、#3、#5（插件安装路径穿越、安装失败仍报成功、repeat 规则、pkl 缓存校验与入库）；其余 20 项待办不变。
 - 2026-10-22 补充 pytest 测试框架与 5 项回归固化（见上文「测试」节）；同日作者在真机完成 3 项 GUI/主程序手工冒烟并全部通过，「可选增强 / 测试补强」整节已归档，`TODO.md` 该分类清空。
 - 2026-10-22 完成手工冒烟新增的 #25（无插件变动时不再重建主窗口），详见上文「修复」节末段。遗留：“重启刷新”按钮仍会清空 `cache/output`（按重启语义保留现状）；`import_plugin_list` 不按扩展名过滤、SRT 会被计入失败列表，未在本次处理。
+- 2026-10-22 完成 #6（正式依赖清单），详见上文「变更」节。遗留：间接依赖未锁定，干净环境实测 `PyQt5_sip` 与 `pyinstaller-hooks-contrib` 会比现有 `.venv` 更新一档；`.venv/old_requirements.txt` 按约定保留未动，已由 `requirements.txt` 取代；README 的规则/插件说明段落属 #7，本次未动。
