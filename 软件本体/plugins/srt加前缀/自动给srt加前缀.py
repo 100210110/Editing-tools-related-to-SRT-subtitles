@@ -124,14 +124,20 @@ def main():
     total = len(file_lists)
     processed = 0  # 真正写入 cache/output 的文件数（幂等跳过也算，因为文件已正确落地）
     skipped = 0    # 非 SRT 文件 + 幂等跳过的 SRT
-    failed = 0     # 读取异常、写入异常、无有效字幕块
+    failed = 0     # 路径不可处理（不存在/不可读）、读取异常、写入异常、无有效字幕块
 
     os.makedirs(cache_dir, exist_ok=True)
 
     for file_path in file_lists:
-        if not (os.path.isfile(file_path) and file_path.lower().endswith('.srt')):
+        if not file_path.lower().endswith('.srt'):
             print(f"⚠️ 跳过非 SRT 文件：{file_path}", file=sys.stderr)
             skipped += 1
+            continue
+
+        # 扩展名对但路径不可处理，属于失败而不是"跳过"：用户以为它在处理队列里，实际拿不到文件
+        if not os.path.isfile(file_path):
+            print(f"❌ 文件不存在或不可读：{file_path}", file=sys.stderr)
+            failed += 1
             continue
 
         prefix = f"{os.path.splitext(os.path.basename(file_path))[0]}："

@@ -23,6 +23,8 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 项目来自视频后期场景，目标是减少字幕处理中的重复劳动（`Editing-tools-related-to-SRT-subtitles/README.md:1-2`）。
 
+**在流程中的位置（2026-10-22 作者确认）**：本工具承担的是**精修字幕之前的批处理环节**——只做批量、机械、可容错的脏活累活（去重词、补前缀、删口水词等），产物交给人工做精校、断句与样式特效。因此实现上**优先保证“不破坏整体结构、不丢文件”，而非逐字元的精确性**：个别字幕块出现瑕疵（如行首样式标签被前缀挡在前面）可以接受，人工在精修阶段顺手改掉即可，不为这类低频场景增加解析复杂度。
+
 ### 1.2 项目身份
 
 | 项目 | 内容 | 依据 |
@@ -51,7 +53,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
 | 测试插件（弹窗/报错） | `软件本体/plugins/测试插件/__init__.py:14-78` | 调试用途，非生产功能 |
-| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 4 个测试模块，60 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存回归，**无 CI**；见 `CHANGELOG.md` |
+| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 5 个测试模块，85 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存 / SRT 前缀回归，**无 CI**；见 `CHANGELOG.md` |
 
 ### 1.4 业务背景与使用方式
 
@@ -418,13 +420,15 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 步骤 | 行为 | 代码位置 |
 |---|---|---|
 | 1 | 从 stdin 读取 JSON，取 `output_path` 与 `pending_file_lists` | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:102-118` |
-| 2 | 只处理后缀为 `.srt`（大小写不敏感）的路径；其他路径打印跳过并计入 `skipped` | `131-136` |
-| 3 | 用输入文件名（不含扩展名）加中文全角冒号 `：` 作为前缀 | `137` |
+| 2 | 先按扩展名分流：后缀不是 `.srt`（大小写不敏感）的路径打印跳过并计入 `skipped`；扩展名是 `.srt` 但路径不存在/不是文件（目录、已被删除）时打印「文件不存在或不可读」并计入 `failed` | `131-141` |
+| 3 | 用输入文件名（不含扩展名）加中文全角冒号 `：` 作为前缀 | `143` |
 | 4 | 按**空行分块**（连续空行归一），块内用 `TIME_LINE_RE` 定位时间轴行（`,` / `.` 均接受，序号行可缺失），只给**时间轴下一行**（即第一个文本行）加前缀；块内其余文本行不动 | `13`、`20-58` |
-| 5 | 写入 `cache/output/<原 basename>`；幂等跳过时也写一份原样副本 | `141-158` |
-| 6 | stdout 返回 `status`、`processed`（成功写入数，幂等跳过计入）、`total`、`skipped`（非 SRT + 幂等跳过）、`failed`（读取/写入异常、无有效块）、`completed_output_lists`、`popup: False` | `161-172` |
+| 5 | 写入 `cache/output/<原 basename>`；幂等跳过时也写一份原样副本 | `147-165` |
+| 6 | stdout 返回 `status`、`processed`（成功写入数，幂等跳过计入）、`total`、`skipped`（非 SRT + 幂等跳过）、`failed`（路径不存在/不可读、读取/写入异常、无有效块）、`completed_output_lists`、`popup: False` | `167-178` |
 
-块识别与失败口径：按空行分块，块内没有时间轴行的块**原样保留、不加前缀**，不计入有效块；有效块数为 0（空文件、纯文本、只有空白）时抛 `SrtFormatError`，该文件计入 `failed` 且不写输出。幂等判断严格匹配“当前文件名 + `：`”，且只看第一个文本行；其他 `XXX：` 前缀照常叠加。读取用 `utf-8-sig`，写出 `utf-8` 无 BOM、行尾固定 `\n`。
+块识别与失败口径：按空行分块，块内没有时间轴行的块**原样保留、不加前缀**，不计入有效块；有效块数为 0（空文件、纯文本、只有空白）时抛 `SrtFormatError`，该文件计入 `failed` 且不写输出。**失败与跳过的分界是“是否该管”：非 `.srt` 一律算 `skipped`（哪怕路径不存在），`.srt` 却拿不到文件算 `failed`**——用户把它放进列表就是指望它被处理，静默跳过会让人以为已完成。幂等判断严格匹配“当前文件名 + `：`”，且只看第一个文本行；其他 `XXX：` 前缀照常叠加。读取用 `utf-8-sig`，写出 `utf-8` 无 BOM、行尾固定 `\n`。**非 UTF-8（如 GBK）字幕解码失败会计入 `failed` 且不产出，不做编码回退**——作者 2026-10-22 决定（实际字幕源绝大多数是 UTF-8，遇到异常编码时先手工转码）。
+
+**已知且明确不修**：文本首行为 `{\an8}` 之类样式标签时，前缀会插到标签之前（`ep01：{\an8}你好`），标签失效、该条字幕定位/样式受影响。原因是实现只看“时间轴下一行”这个位置，不做标签解析。按 §1.1「精修前的批处理」定位，该场景触发少、命中行数少，交给人工精修阶段处理，不为此增加解析复杂度（2026-10-22 作者决定）。
 
 ### 5.7 ASS 转透明底视频流程
 
@@ -932,9 +936,9 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 **当前状态（2026-10-22）**：
 
-- 已建立 `tests/`（pytest，82 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **81 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
+- 已建立 `tests/`（pytest，85 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **84 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
 - `tests/conftest.py` 通过 `importlib` 按路径加载被测模块以兼容中文目录；`load_zip` 的 `get_path` 与弹窗在 fixture 内 monkeypatch，规则 JSON/pkl 全部限制在 `tmp_path`，因此测试不读写仓库内运行产物。
-- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，22 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
+- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，25 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
 - 仍无 CI 配置；上述手工入口照旧存在。
 
 ### 9.6 建议的冒烟测试清单

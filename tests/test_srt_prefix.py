@@ -415,3 +415,44 @@ def test_main_only_non_srt_files(tmp_path, run_main):
     assert (result["total"], result["processed"], result["skipped"], result["failed"]) == (1, 0, 1, 0)
     assert result["completed_output_lists"] == []
     assert list(cache_dir.iterdir()) == []
+
+
+def test_main_missing_srt_counts_as_failed(tmp_path, run_main):
+    """路径不存在时不能算跳过——用户以为它在队列里，实际拿不到文件。"""
+    missing = tmp_path / "missing.srt"
+    cache_dir = tmp_path / "cache" / "output"
+
+    result, stderr = run_main(
+        {"output_path": str(cache_dir), "pending_file_lists": [str(missing)]}
+    )
+
+    assert (result["total"], result["processed"], result["skipped"], result["failed"]) == (1, 0, 0, 1)
+    assert result["completed_output_lists"] == []
+    assert "文件不存在或不可读" in stderr
+    assert list(cache_dir.iterdir()) == []
+
+
+def test_main_directory_named_srt_counts_as_failed(tmp_path, run_main):
+    """同名目录冒充 .srt 也不算跳过。"""
+    fake = tmp_path / "folder.srt"
+    fake.mkdir()
+    cache_dir = tmp_path / "cache" / "output"
+
+    result, stderr = run_main(
+        {"output_path": str(cache_dir), "pending_file_lists": [str(fake)]}
+    )
+
+    assert (result["total"], result["processed"], result["skipped"], result["failed"]) == (1, 0, 0, 1)
+    assert "文件不存在或不可读" in stderr
+
+
+def test_main_missing_non_srt_still_counts_as_skipped(tmp_path, run_main):
+    """非 SRT 无论存不存在都不归这个插件管，仍计跳过。"""
+    missing_txt = tmp_path / "missing.txt"
+    cache_dir = tmp_path / "cache" / "output"
+
+    result, _ = run_main(
+        {"output_path": str(cache_dir), "pending_file_lists": [str(missing_txt)]}
+    )
+
+    assert (result["total"], result["processed"], result["skipped"], result["failed"]) == (1, 0, 1, 0)
