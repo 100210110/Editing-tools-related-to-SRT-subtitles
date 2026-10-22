@@ -415,7 +415,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 - “启用”状态会写入 JSON 的 `enabled` 字段；主处理器在解析时跳过 `enabled=false` 的节点（`build_automaton.py:163-181`）。
 - 编辑器支持 `repeat` 规则的增删改（`514-556`），并在 Repeat 对话框提供语义 tooltip（外层启用、压缩与分隔独立、门槛按原始次数、分隔符作用）；保存后由主处理器解析并生效，见 5.4 与 6.5。
 - `source` 冲突防护分三层：`ReplaceItemDialog.add_source()` 在添加时若该源词已属于别的替换项，先弹确认框（`known_sources` 由 `SubtitleEditor.collect_sources()` 汇总）；保存时 `confirm_duplicate_sources()` 扫描全局 source，把冲突（`源词 → 目标词列表`）列出来并询问是否继续，用户拒绝则不落盘；主处理器 `_process_node()` 在构建映射时记录 `source_conflicts` 并在 stderr 告警（后写入者生效的旧语义不变，`common.py` `find_duplicate_sources()`）。
-- 打包后“新建”把保存目标设为 `os.path.dirname(__file__)/subtitle_rules.json`（`214-218`）；在 PyInstaller 单文件模式下 `__file__` 可能位于临时解压目录，存在写入只读/临时目录的风险，**未在打包环境验证**。
+- 打包后“新建”的保存目标由 `default_working_path()` 统一指向程序目录下的 `subtitle_rules.json`（`get_path(use_program_dir=True)`，与加载路径同源），不再依赖 `__file__`；2026-10-23 已在 1.4.1b 包内实测「新建 → 保存 → 重新加载」通过。
 
 ### 5.6 SRT 加前缀流程
 
@@ -1152,7 +1152,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 低 | **`scan_plugins()` 重复调用**（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:508` | 多一次扫描，当前无功能影响；可删除一次 |
 | 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/build_automaton.py` `_resolve_overlaps()` | 某些重叠词删除/替换结果不符合“长词优先”直觉。已改为按「长度降序、起点升序」的区间调度，长词优先对任意起点组合成立 |
 | 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复（已修复，见 CHANGELOG [2026-10-23]） | `build_automaton.py` `_process_node()`；`subtitle_rule_editor.py` `confirm_duplicate_sources()` | 规则冲突不易发现。现在构建时记录 `source_conflicts` 并告警、编辑器保存前列冲突并询问、添加源词时提前提示；覆盖语义本身不变 |
-| 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)`（已修复，见 CHANGELOG [2026-10-23]） | `subtitle_rule_editor.py:214-218`（现状 `default_working_path()`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。现统一改用 `get_path(use_program_dir=True)`，与同文件加载路径一致；打包环境实测仍待人工 |
+| 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)`（已修复，见 CHANGELOG [2026-10-23]） | `subtitle_rule_editor.py:214-218`（现状 `default_working_path()`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。现统一改用 `get_path(use_program_dir=True)`，与同文件加载路径一致；2026-10-23 在 1.4.1b 包内实测「新建 → 保存 → 重新加载」通过 |
 | 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`**（已修复，见 CHANGELOG [2026-10-23]） | `subtitle_rule_editor.py` `run()`；`srt关键词替换/__init__.py` `handle_event()` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；现由 `run()` 返回退出码、入口单独 `except SystemExit` 后统一输出 JSON |
 | 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数（已修复，见 CHANGELOG [2026-10-23]） | `load_zip.py:365-373` | 容易误用。建议删除或改为正式测试 |
 | 低 | **测试插件用 `raise KeyboardInterrupt` 模拟错误**（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/测试插件/__init__.py:68-70` | `KeyboardInterrupt` 不是 `Exception`，会走 Python 默认 traceback；仅调试用途 |
@@ -1220,7 +1220,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | A4 | ASS 插件是否曾发布、通过何种渠道分发 | 现有 `v1.x/` 与 `发布zip/` 均未发现该插件 |
 | A5 | FFmpeg 的最低版本要求与推荐构建 | 代码只调用滤镜/编码器，未声明版本 |
 | A6 | PySimpleGUI 6.0 的授权/安装限制 | **已确认（2026-10-22）**：官方 PyPI 上存在 6.0（以及后续 6.2/6.3），wheel 为 `py3-none-any` 纯 Python 包，License 为 LGPLv3，无授权码/注册校验，安装方式就是普通 `pip install PySimpleGUI==6.0` |
-| A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | **部分确认（2026-10-22）**：编辑器在打包环境能正常打开，并按 `get_path(use_program_dir=True)` 从 exe 旁的 `subtitle_rules.json` 正确加载（三个根节点 Delete/Repeat/Replace 齐全，无告警弹窗）；但 `new_file()` 仍用 `os.path.dirname(__file__)` 设 `current_file`（`subtitle_rule_editor.py:222`），打包后 `__file__` 位于 `_MEIPASS`，**「新建→保存」很可能写到临时目录、退出即失**，未实测保存动作（见 §11 对应条目） |
+| A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | **已确认（2026-10-23）**：1.4.1b 包内实测——编辑器正常打开，按 `get_path(use_program_dir=True)` 从 exe 旁 `subtitle_rules.json` 加载（三个根节点齐全、无告警）；`new_file()` 走 `default_working_path()`，「新建 → 保存 → 重新加载」正常落盘到 exe 旁，不再依赖 `__file__`；关闭编辑器后主程序正常收尾（与 §18 一并实测） |
 | A8 | `default_subtitle_rules.json` 与 `build_automaton.py` 内嵌默认配置是否逐字一致 | 内容近似，未做 diff 比对 |
 | A9 | 旧版 `v1.0.0/v1.1.0b` 源码与当前实现的完整差异 | 仅抽查了目录与部分文件，未逐行 diff |
 | A10 | `plugin_log/` 是否应纳入版本管理、日志保留策略 | **已确认（2026-10-23）**：日志不入库——`.gitignore` 忽略 `软件本体/plugins/*/plugin_log/` 与全部 `*.log`；日志仅用于本地排查，由 `RotatingFileHandler` 自行滚动（10 MB × 5），保留策略交给使用者；见 §3.4 |
