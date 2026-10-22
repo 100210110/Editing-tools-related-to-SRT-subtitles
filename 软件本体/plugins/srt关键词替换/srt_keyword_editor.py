@@ -2,7 +2,7 @@ import sys, os, re, io, json
 from build_automaton import SubtitleRuleProcessor
 import time
 from functools import wraps
-from common import get_path
+from common import get_path, cache_output_name, strip_cache_prefix
 import logging
 
 sys.stdin.reconfigure(encoding='utf-8')
@@ -101,11 +101,11 @@ def main(params):
                 try:
 
                     cleaned_text, profanity_count = process_srt_file(file_path)
-                    base_name = os.path.splitext(os.path.basename(file_path))[0]
-                    deleted_counts[base_name] = profanity_count   # 直接存入统计结果
-                    # 生成输出文件名（保持原后缀）
-                    ext = os.path.splitext(file_path)[1]
-                    output_path = os.path.join(cache_dir, base_name + ext)
+                    # 统计显示原始文件名（链式处理时输入已带哈希前缀）
+                    display_name = os.path.splitext(strip_cache_prefix(file_path))[0]
+                    deleted_counts[display_name] = profanity_count   # 直接存入统计结果
+                    # 输出名带来源哈希前缀，避免不同目录的同名文件在 cache/output 互相覆盖
+                    output_path = os.path.join(cache_dir, cache_output_name(file_path))
 
 
                     with open(output_path, 'w', encoding='utf-8') as f:

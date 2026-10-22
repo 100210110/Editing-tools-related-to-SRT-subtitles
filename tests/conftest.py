@@ -17,6 +17,9 @@ SOFTWARE_DIR = REPO_ROOT / "软件本体"
 BUILD_AUTOMATON_PATH = SOFTWARE_DIR / "plugins" / "srt关键词替换" / "build_automaton.py"
 LOAD_ZIP_PATH = SOFTWARE_DIR / "load_zip.py"
 MAIN_PROGRAM_PATH = SOFTWARE_DIR / "插件调度主程序.py"
+KEYWORD_PLUGIN_DIR = SOFTWARE_DIR / "plugins" / "srt关键词替换"
+KEYWORD_PROCESSOR_PATH = KEYWORD_PLUGIN_DIR / "srt_keyword_editor.py"
+PREFIX_PLUGIN_PATH = SOFTWARE_DIR / "plugins" / "srt加前缀" / "自动给srt加前缀.py"
 
 _DEFAULT_MANIFEST = object()
 
@@ -59,6 +62,43 @@ def main_program_module():
     finally:
         sys.stdin, sys.stdout, sys.stderr = saved_streams
         sys.path[:] = saved_path
+    return module
+
+
+@pytest.fixture(scope="session")
+def keyword_common_module():
+    """`srt关键词替换/common.py`（get_path、缓存命名、logger 配置）。"""
+    return _load_module("retoolbox_keyword_common_under_test", KEYWORD_PLUGIN_DIR / "common.py")
+
+
+@pytest.fixture(scope="session")
+def keyword_processor_module():
+    """`srt关键词替换/srt_keyword_editor.py`（插件主流程 main）。"""
+    saved_streams = (sys.stdin, sys.stdout, sys.stderr)
+    saved_path = list(sys.path)
+    sys.stdin = io.TextIOWrapper(io.BytesIO())
+    sys.stdout = io.TextIOWrapper(io.BytesIO())
+    sys.stderr = io.TextIOWrapper(io.BytesIO())
+    sys.path.insert(0, str(KEYWORD_PLUGIN_DIR))
+    try:
+        module = _load_module("retoolbox_keyword_processor_under_test", KEYWORD_PROCESSOR_PATH)
+    finally:
+        sys.stdin, sys.stdout, sys.stderr = saved_streams
+        sys.path[:] = saved_path
+    return module
+
+
+@pytest.fixture(scope="session")
+def prefix_plugin_module():
+    """`srt加前缀/自动给srt加前缀.py`（模块 import 期会重配标准流，加载后还原）。"""
+    saved_streams = (sys.stdin, sys.stdout, sys.stderr)
+    sys.stdin = io.TextIOWrapper(io.BytesIO())
+    sys.stdout = io.TextIOWrapper(io.BytesIO())
+    sys.stderr = io.TextIOWrapper(io.BytesIO())
+    try:
+        module = _load_module("retoolbox_srt_prefix_cache_under_test", PREFIX_PLUGIN_PATH)
+    finally:
+        sys.stdin, sys.stdout, sys.stderr = saved_streams
     return module
 
 

@@ -340,17 +340,20 @@ def test_main_mixed_input_counts(tmp_path, run_main):
     assert result["popup"] is False
 
     completed = [Path(p) for p in result["completed_output_lists"]]
-    assert completed == [cache_dir / "a.srt", cache_dir / "d.srt"]
+    assert len(completed) == 2
     assert all(path.exists() for path in completed)
+    # 输出名带来源哈希前缀（TODO #12），同一目录下也不会互相覆盖
+    assert completed[0].name.endswith("__a.srt")
+    assert completed[1].name.endswith("__d.srt")
 
-    assert read_text(cache_dir / "a.srt") == block(
+    assert read_text(completed[0]) == block(
         1, "00:00:01,000", "00:00:03,000", "a：待处理"
     ) + "\n"
-    assert read_text(cache_dir / "d.srt") == block(
+    assert read_text(completed[1]) == block(
         1, "00:00:01,000", "00:00:03,000", "d：已完成"
     ) + "\n"
-    assert not (cache_dir / "c.srt").exists()
-    assert not (cache_dir / "e.srt").exists()
+    assert not any(path.name.endswith("__c.srt") for path in cache_dir.iterdir())
+    assert not any(path.name.endswith("__e.srt") for path in cache_dir.iterdir())
     assert "跳过非 SRT 文件" in stderr
 
 
@@ -398,7 +401,8 @@ def test_main_idempotent_copy_lands_in_cache(tmp_path, run_main):
     )
 
     assert (result["total"], result["processed"], result["skipped"], result["failed"]) == (1, 1, 1, 0)
-    written = cache_dir / "ep03.srt"
+    written = Path(result["completed_output_lists"][0])
+    assert written.name.endswith("__ep03.srt")
     assert written.exists()
     assert read_text(written) == original
     assert read_text(written).count("ep03：") == 1

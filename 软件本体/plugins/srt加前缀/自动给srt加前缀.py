@@ -3,6 +3,7 @@ import os
 import json
 import io
 import re
+import hashlib
 
 # 强制所有标准流使用 UTF-8
 sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
@@ -11,6 +12,32 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 时间轴行：00:00:01,000 --> 00:00:03,000；毫秒分隔符 , 和 . 都接受
 TIME_LINE_RE = re.compile(r"\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}")
+
+# ---------- 缓存输出命名（与 srt关键词替换/common.py 保持同一口径） ----------
+# 两个插件都往同一个 cache/output 写，不同目录的同名 SRT 会互相覆盖。
+# 统一用「12 位哈希前缀 + __ + 原文件名」区分来源，主程序导出时再把前缀剥掉。
+CACHE_NAME_HASH_LEN = 12
+CACHE_NAME_SEPARATOR = "__"
+CACHE_NAME_PREFIX_RE = re.compile(r'^[0-9a-f]{%d}%s' % (CACHE_NAME_HASH_LEN, CACHE_NAME_SEPARATOR))
+
+
+def cache_output_name(src_path):
+    """生成 cache/output 下的文件名：`<12位哈希>__<原文件名>`。
+
+    前缀取源文件绝对路径（`normcase` 后）的 SHA-1 前 12 位；已带前缀的沿用，不叠加。
+    """
+    base_name = os.path.basename(src_path)
+    if CACHE_NAME_PREFIX_RE.match(base_name):
+        return base_name
+    normalized = os.path.normcase(os.path.abspath(src_path))
+    digest = hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:CACHE_NAME_HASH_LEN]
+    return f"{digest}{CACHE_NAME_SEPARATOR}{base_name}"
+
+
+def strip_cache_prefix(file_name):
+    """剥掉哈希前缀，还原原始文件名（说话人前缀按原始文件名取）。"""
+    return CACHE_NAME_PREFIX_RE.sub('', os.path.basename(file_name))
+
 
 
 class SrtFormatError(ValueError):
@@ -140,12 +167,12 @@ def main():
             failed += 1
             continue
 
-        prefix = f"{os.path.splitext(os.path.basename(file_path))[0]}："
+        # 说话人名取原始文件名（链式处理时输入可能已带哈希前缀）
+        speaker = os.path.splitext(strip_cache_prefix(file_path))[0]
+        prefix = f"{speaker}："
 
-        # 构造输出文件完整路径：在 cache_dir 下保持原文件名
-        base_name = os.path.basename(file_path)
-        output_file = os.path.join(cache_dir, base_name)
-        # 如果担心多个同名的文件（来自不同文件夹）会相互覆盖，可以加上来源目录的哈希或序号，但你的cache每次清空，暂时无妨
+        # 构造输出文件完整路径：在 cache_dir 下用「哈希前缀 + 原文件名」，同名不互相覆盖
+        output_file = os.path.join(cache_dir, cache_output_name(file_path))
 
         try:
             _, prefixed = add_char_to_srt(file_path, prefix, output_file)

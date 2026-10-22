@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 from tkinterdnd2 import DND_FILES, TkinterDnD
+import re
 import sys
 import os
 import json
@@ -501,15 +502,26 @@ def run_script_plugin(btn_info, window):
             else:
                 sg.popup(stderr, title="插件执行失败")
 
+# 插件写 cache/output 时会加「12 位哈希前缀 + __」区分来源，导出时剥掉（与插件的 common.py 同口径）
+CACHE_NAME_PREFIX_RE = re.compile(r'^[0-9a-f]{12}__')
+
+
+def strip_cache_prefix(filename):
+    """剥掉插件写入缓存时加的哈希前缀，还原原始文件名。"""
+    return CACHE_NAME_PREFIX_RE.sub('', os.path.basename(filename))
+
+
 # 将 src_dir 中的所有文件移动到 dst_dir（不处理子文件夹）
 def move_all_files(src_dir, dst_dir):
     os.makedirs(dst_dir, exist_ok=True)
     for filename in os.listdir(src_dir):
         src_path = os.path.join(src_dir, filename)
         if os.path.isfile(src_path):
-            dst_path = os.path.join(dst_dir, filename)
+            # 导出名还原成原始文件名；同名文件仍走 _1/_2 后缀，不互相覆盖
+            dst_name = strip_cache_prefix(filename)
+            dst_path = os.path.join(dst_dir, dst_name)
             if os.path.exists(dst_path):
-                base, ext = os.path.splitext(filename)
+                base, ext = os.path.splitext(dst_name)
                 counter = 1
                 while os.path.exists(os.path.join(dst_dir, f"{base}_{counter}{ext}")):
                     counter += 1

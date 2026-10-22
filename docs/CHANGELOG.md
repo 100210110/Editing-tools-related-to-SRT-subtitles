@@ -58,6 +58,16 @@
 
 ### 变更
 
+- 缓存输出改用**来源哈希前缀**，修掉不同目录同名 SRT 互相覆盖（TODO #12，用户口径：选哈希前缀方案）：输出名统一为 `<12位哈希>__<原文件名>`，哈希取源文件绝对路径（`os.path.normcase` 后）的 SHA-1 前 12 位——同一路径重复处理结果稳定，不同目录的同名文件则天然分开；已经带前缀的中间产物**沿用原名**，链式处理不会叠加第二层前缀。
+  - 关键词替换插件：`common.py` 新增 `cache_output_name()` / `strip_cache_prefix()`，`srt_keyword_editor.main()` 用它构造输出路径；「文明小助手」统计仍按**原始文件名**展示，不出现哈希串（`软件本体/plugins/srt关键词替换/common.py`、`srt_keyword_editor.py`）。
+  - 前缀插件：自身是单文件插件、无法 import 上面的 `common.py`，按**同一口径**复制了 `CACHE_NAME_PREFIX_RE` / `cache_output_name()` / `strip_cache_prefix()`（`软件本体/plugins/srt加前缀/自动给srt加前缀.py`）；说话人前缀也改为从原始文件名取，链式处理时不会变成 `0123456789ab__ep01：`。
+  - 主程序：`move_all_files()` 导出时先 `strip_cache_prefix()` 还原原始文件名，同名再走原有 `_1`/`_2` 递增后缀，所以 `output/` 里的文件名与改动前一致（`软件本体/插件调度主程序.py`）。
+- 变更 `tests/test_srt_prefix.py` 两项 main 端到端断言：输出名断言改为“以 `__a.srt` / `__ep03.srt` 结尾”，内容断言改为读取 `completed_output_lists` 返回的实际路径（不再假设 `<cache>/a.srt`）。
+- 新增 `tests/test_cache_naming.py`（9 项）：同 basename 不同目录前缀不同、前缀稳定且幂等（已带前缀不再叠加）、`strip_cache_prefix` 还原且不误剥非 12 位十六进制前缀、两个插件口径一致；关键词替换插件 main（桩掉处理器）处理两个同名文件产出两份且统计不含 `__`；前缀插件 main 处理两个同名文件产出两份、说话人用原名，输入已带前缀时也取原名；`move_all_files` 导出还原原名并生成 `ep01.srt` / `ep01_1.srt`、缓存目录被移空。`conftest.py` 新增 `keyword_common_module` / `keyword_processor_module` / `prefix_plugin_module` 三个 fixture。
+- `README.md` 三处同步：文件与列表的“请不要拖入同名文件”改为“可以放心拖入同名文件”，导出说明补充前缀会被剥离，已知限制里的“同名文件会互相覆盖”改为说明缓存名带哈希前缀（附“不是损坏”的提醒）；同时更新 #17 遗留的“打包后新建路径未验证”表述。
+- **歧义说明**：TODO 只写了“哈希前缀或保留相对路径”，未规定长度与分隔符，这里取“12 位 + `__`”（12 位十六进制足以避碰，`__` 便于用 `strip_cache_prefix` 稳定剥离）；同名文件的敏感词统计仍按原文件名合并为一条，未按目录拆分。
+- 归档自 `TODO.md` #12，编号不复用。
+
 - 删除 `load_zip.py` 中失效的测试入口 `test_plugins_list()`（TODO #19）：该函数循环内只保留最后一个 `PluginInstaller`，空列表时 `plugin_zip` 未定义会抛 `UnboundLocalError`，且只对最后一个包调 `check_version_and_install()`；主程序从未调用它，正式入口是 `import_plugin_list()`。已确认全仓库无引用（仅 `AI_CONTEXT.md` §11 与 `TODO.md` 提及），直接删除；如需“遍历全部并正确处理空列表”的验证入口，应另建 pytest 用例而非保留 GUI 半成品函数（`软件本体/load_zip.py`）。
 - 归档自 `TODO.md` #19，编号不复用。
 

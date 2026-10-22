@@ -1,7 +1,35 @@
-import os, sys, json
+import os, sys, json, re, hashlib
 # logger
 import logging
 from logging.handlers import RotatingFileHandler
+
+
+# ---------- 缓存输出命名 ----------
+# 插件都往同一个 cache/output 写，不同目录的同名 SRT 会互相覆盖。
+# 统一用「12 位哈希前缀 + __ + 原文件名」区分来源，导出时再把前缀剥掉。
+CACHE_NAME_HASH_LEN = 12
+CACHE_NAME_SEPARATOR = "__"
+CACHE_NAME_PREFIX_RE = re.compile(r'^[0-9a-f]{%d}%s' % (CACHE_NAME_HASH_LEN, CACHE_NAME_SEPARATOR))
+
+
+def cache_output_name(src_path):
+    """生成 cache/output 下的文件名：`<12位哈希>__<原文件名>`。
+
+    前缀取源文件绝对路径（`normcase` 后）的 SHA-1 前 12 位：同一路径重复处理结果稳定，
+    不同目录的同名文件则不同。已经带前缀的（链式处理产生的中间产物）原样沿用，
+    不会叠加第二层前缀。
+    """
+    base_name = os.path.basename(src_path)
+    if CACHE_NAME_PREFIX_RE.match(base_name):
+        return base_name
+    normalized = os.path.normcase(os.path.abspath(src_path))
+    digest = hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:CACHE_NAME_HASH_LEN]
+    return f"{digest}{CACHE_NAME_SEPARATOR}{base_name}"
+
+
+def strip_cache_prefix(file_name):
+    """剥掉哈希前缀，还原原始文件名（导出、统计与说话人前缀都用它）。"""
+    return CACHE_NAME_PREFIX_RE.sub('', os.path.basename(file_name))
 
 
 # 获取资源的绝对路径, 打包后默认返回只读目录, 容开发环境和 PyInstaller 打包后
