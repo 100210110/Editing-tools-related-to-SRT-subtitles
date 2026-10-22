@@ -196,7 +196,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 ### 3.4 仓库卫生现状
 
-- git 跟踪 47 个文件（`git ls-files`，2026-10-23 夜间批量部分合并后统计）。
+- git 跟踪 48 个文件（`git ls-files`，2026-10-23 夜间批量部分合并后统计）。
 - 运行产物**均不在版本控制内**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 已移出索引（工作区文件保留，`.gitignore` 说明为“不自动取消跟踪，需另行 `git rm --cached`”，实际已执行完成）；`plugins/*/plugin_log/` 从未入库。
 - 根级 `.gitignore` 覆盖 `*.log`、`*.pkl`、`软件本体/cache/{output,temp,plugin_backup}/`、`软件本体/output/`、`软件本体/plugins/*/plugin_log/`、`__pycache__/`、`build/`、`dist/`、`*.spec`、插件内 FFmpeg 二进制与 IDE/系统杂项；回归由 `tests/test_repo_hygiene.py` 守住（规则存在性 + `git check-ignore` + 索引扫描）。
 - 测试基础设施：勘察时（2026-10-22 前）没有 `tests/`、`pytest.ini`、`tox.ini`、GitHub Actions；现已建立 `tests/`（pytest）与 `requirements.txt` / `requirements-dev.txt`，仍无 CI（见 9.5）。
