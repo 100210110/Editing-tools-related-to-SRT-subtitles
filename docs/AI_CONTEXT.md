@@ -53,7 +53,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
 | 测试插件（弹窗/报错） | `软件本体/plugins/测试插件/__init__.py:14-78` | 调试用途，非生产功能 |
-| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 7 个测试模块，113 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存 / SRT 前缀 / 插件扫描回归，**无 CI**；见 `CHANGELOG.md` |
+| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 8 个测试模块，121 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存 / SRT 前缀 / 插件扫描 / 导入备份回归，**无 CI**；见 `CHANGELOG.md` |
 
 ### 1.4 业务背景与使用方式
 
@@ -170,7 +170,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 路径 | 职责 | 关键依据 |
 |---|---|---|
 | `软件本体/插件调度主程序.py` | 唯一主入口；构建 UI、扫描插件、维护文件列表、启动插件子进程、导入插件、导出文件 | `112-270`、`362-436`、`487-654` |
-| `软件本体/load_zip.py` | 插件安装器类 `PluginInstaller`；从 zip 根目录读取 `manifest.json`，按版本决定是否安装，解压到 `plugins/<plugin_id>/` | `38-165` |
+| `软件本体/load_zip.py` | 插件安装器类 `PluginInstaller`；从 zip 根目录读取 `manifest.json`，按版本决定是否安装，备份被覆盖文件后解压到 `plugins/<plugin_id>/` | `49-362` |
 | `软件本体/config.json` | 主程序名称、版本、更新日期、作者信息；主程序只读取 `version` 与 `update_date` | `插件调度主程序.py:50-59` |
 | `软件本体/cache/output/` | 插件输出暂存；**首次启动**时清空，插件导入后的窗口重建不清空；链式处理的载体 | `插件调度主程序.py:307-310`、`504-505` |
 | `软件本体/cache/temp/` | 插件的临时目录（ASS 临时字幕、FFmpeg `-report` 日志等） | `插件调度主程序.py:307-310`；`ass转码透明底视频.py:126-133` |
@@ -258,7 +258,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 模块 | 直接依赖 | 被谁调用 | 备注 |
 |---|---|---|---|
 | `插件调度主程序.py` | `PySimpleGUI`、`tkinterdnd2`、`load_zip.import_plugin_list`、标准库 | 用户直接启动 | 主进程 |
-| `load_zip.py` | `PySimpleGUI`、`packaging.version`、`zipfile` | 主程序的“导入插件” | 安装逻辑与 UI 混在一起 |
+| `load_zip.py` | `PySimpleGUI`、`packaging.version`、`zipfile`，标准库 `time`/`zlib`（备份目录时间戳、CRC 比对） | 主程序的“导入插件” | 安装逻辑与 UI 混在一起 |
 | `plugins/srt关键词替换/__init__.py` | `common`、`srt_keyword_editor`、`subtitle_rule_editor` | 主程序按 `manifest.buttons[].executable` 启动 | 子进程入口 |
 | `srt_keyword_editor.py` | `build_automaton.SubtitleRuleProcessor`、`common` | `__init__.py` 的 `event_main` | 真正处理 SRT |
 | `build_automaton.py` | `ahocorasick`、`pickle`、自带 `get_path` | `srt_keyword_editor`、规则编辑器间接 | 规则解析与匹配核心 |
@@ -298,7 +298,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 文件 | 默认 `use_program_dir` | 行为 | 用途 |
 |---|---|---|---|
 | `软件本体/插件调度主程序.py:22-48` | `True` | 打包后取 exe 所在目录；否则取脚本目录 | 配置、插件目录、缓存、导出 |
-| `软件本体/load_zip.py:15-41` | `True` | 同上 | 计算插件安装路径 |
+| `软件本体/load_zip.py:21-47` | `True` | 同上 | 计算插件安装路径 |
 | `软件本体/plugins/srt关键词替换/common.py:8-34` | `False` | 打包后默认取 `sys._MEIPASS`（只读资源目录）；显式 `True` 才取 exe 目录 | 日志、规则文件、默认规则资源 |
 | `软件本体/plugins/srt关键词替换/build_automaton.py:27-53` | `True` | 与主程序相同 | 规则 JSON / pkl 路径 |
 | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:18-44` | `True` | 与主程序相同 | FFmpeg 路径 |
@@ -453,14 +453,14 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 **插件导入**（`软件本体/load_zip.py`）：
 
-1. 主程序“导入插件”把 `FILE_LIST` 传给 `import_plugin_list()`（`软件本体/插件调度主程序.py:594-597`）。
-2. `PluginInstaller.load_zip_json()` 从 zip 根读取 `manifest.json`，要求 `name`、`version`，`plugin_id` 缺省时使用 `name`；安装路径为 `plugins/<plugin_id>/`（`66-81`）。
-3. `check_version_and_install()` 读取已安装版本的 manifest，用 `packaging.version.parse` 比较：
+1. 主程序“导入插件”把 `FILE_LIST` 传给 `import_plugin_list()`（`软件本体/插件调度主程序.py:601-602`）。
+2. `PluginInstaller.load_zip_json()` 从 zip 根读取 `manifest.json`，要求 `name`、`version`，`plugin_id` 缺省时使用 `name`；安装路径为 `plugins/<plugin_id>/`（`64-94`）。
+3. `check_version_and_install()` 先做包完整性校验，再读取已安装版本的 manifest，用 `packaging.version.parse` 比较：
    - 未安装 → 直接安装；
    - 新版本更高 → 安装；
-   - 版本相同/更低 → 弹窗询问是否重装（`84-118`）。
-4. `install()` 先 `shutil.rmtree` 目标目录，再逐项校验 zip 成员路径（拒绝绝对路径、`..`、以 `/` 开头），最后 `extractall`（`121-134`）。
-5. 安装完成后主程序从 `FILE_LIST` 移除成功导入的 zip，销毁并重建窗口；**重建只在 `success_list` 非空时发生**，失败、取消重装与无变动场景只弹窗（失败时）并保持窗口不变，避免无谓刷新与清空 `cache/output`（`534-562`）。
+   - 版本相同/更低 → 弹窗询问是否重装（`237-273`）。
+4. `install()` 顺序固定为：校验 zip 成员路径（拒绝绝对路径、`..`、以 `/` 开头）→ 备份将被覆盖且内容有差异的同名文件到 `cache/plugin_backup/<plugin_id>/<时间戳>/` → `shutil.rmtree` 目标目录 → `extractall`。前三步任一步失败都不会删除旧目录（`333-362`）。
+5. 安装完成后主程序从 `FILE_LIST` 移除成功导入的 zip，销毁并重建窗口；**重建只在 `success_list` 非空时发生**，失败、取消重装与无变动场景只弹窗（失败时）并保持窗口不变，避免无谓刷新与清空 `cache/output`；有文件被覆盖时额外弹一次“插件文件已备份”（`601-640`）。
 6. 重建走 `init_program(clear_cache=False)`（`557`），因此链式处理留在 `cache/output` 的中间产物不会被删除；`FILE_LIST` 是模块级全局变量，重建后列表项与顺序均保留（`62`、`425`）。
 
 **导出**：
@@ -515,7 +515,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 |---|---|---|---|---|
 | `name` | string | 是 | 插件名 | 各 manifest |
 | `category` | string | 否 | 主界面分组标题，默认“未分类” | `插件调度主程序.py:166` |
-| `version` | string | 是（导入时） | 版本比较 | `load_zip.py:111-112`、`228-265` |
+| `version` | string | 是（导入时） | 版本比较 | `load_zip.py:120-121`、`237-273` |
 | `description` | string | 否 | 插件描述 | `load_zip.py:113` |
 | `debug` | bool | 否 | 控制 `plugin_info.log` 是否写入 | `common.py:54-59` |
 | `buttons` | array | 是（新版） | 按钮列表 | `插件调度主程序.py:169` |
@@ -734,8 +734,9 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 - 必填字段：`name`、`version`；可选 `plugin_id`、`description`。
 - 安装目标：`<program_dir>/plugins/<plugin_id or name>/`。
 - 版本规则：新版本或未安装直接安装；相同/更低版本需用户确认重装。
-- 安全校验：zip 成员路径会拒绝绝对路径与 `..`（`load_zip.py:274-277`）；`plugin_id` 与安装目标路径均在安装前校验（见 11 节）。
-- 完整性校验：安装前用 `zipfile.namelist()` 静态检查每个按钮的 `executable` 能否在包内解析到（原样 → 去扩展名 + `.py` → + `.exe`，与运行时 `_resolve_executable` 同源）；不通过即中止安装，**已安装插件目录原样保留**，不会出现“坏包覆盖好插件”（`load_zip.py:175-226`）。批量导入时单包不弹窗，原因写入 `rejection_reason`，由主程序在“以下文件未导入”弹窗里统一提示一次（标题“导入插件失败”，`load_zip.py:299-327`、`插件调度主程序.py:601-611`）。
+- 安全校验：zip 成员路径会拒绝绝对路径与 `..`，且校验发生在删除旧目录之前（`load_zip.py:344-347`）；`plugin_id` 与安装目标路径均在安装前校验（见 11 节）。
+- 完整性校验：安装前用 `zipfile.namelist()` 静态检查每个按钮的 `executable` 能否在包内解析到（原样 → 去扩展名 + `.py` → + `.exe`，与运行时 `_resolve_executable` 同源）；不通过即中止安装，**已安装插件目录原样保留**，不会出现“坏包覆盖好插件”（`load_zip.py:184-235`）。批量导入时单包不弹窗，原因写入 `rejection_reason`，由主程序在“以下文件未导入”弹窗里统一提示一次（标题“导入插件失败”，`load_zip.py:376-411`、`插件调度主程序.py:601-620`）。
+- 覆盖前备份：`rmtree` 之前用 `ZipInfo` 的 `file_size` + CRC32 比对，把“zip 里有、插件目录里也有且内容不同”的文件复制到 `<program_dir>/cache/plugin_backup/<plugin_id>/<时间戳>/`；内容一致的跳过，备份失败则中止安装、旧目录不动（`load_zip.py:277-331`、`348-352`）。批量导入把备份记录放进返回值 `backups`，主程序装完后弹一次“插件文件已备份”，列出被覆盖的文件与备份路径（`插件调度主程序.py:622-640`）。
 
 ### 7.6 内部关键函数/类
 
@@ -747,7 +748,7 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 | `BuildLayout.build_layout()` | `插件调度主程序.py:272-359` | 组装主窗口布局 | 按钮列表 → PySimpleGUI layout |
 | `run_script_plugin(btn_info, window)` | `插件调度主程序.py:362-436` | 启动插件并处理响应 | 按钮信息 → 更新文件列表/弹窗 |
 | `move_all_files(src_dir, dst_dir)` | `插件调度主程序.py:439-451` | 导出并处理重名 | 目录 → 目录 |
-| `import_plugin_list(zip_path_list)` | `load_zip.py:299-327` | 批量导入插件 | zip 列表 → `{success_list, failed_files, failed_reasons, skipped_files}` |
+| `import_plugin_list(zip_path_list)` | `load_zip.py:376-411` | 批量导入插件 | zip 列表 → `{success_list, failed_files, failed_reasons, skipped_files, backups}`（`backups` 记录被覆盖文件的备份目录） |
 | `SubtitleRuleProcessor.load_rules(force_rebuild=False)` | `build_automaton.py:280-294` | 加载/构建规则与自动机 | 无 → 初始化内部状态 |
 | `SubtitleRuleProcessor.process_text(text)` | `build_automaton.py:212-233` | 删除/替换文本 | 原始文本 → 清理文本 |
 | `SubtitleRuleProcessor.reset_profanity_count()` | `build_automaton.py:113-115` | 重置单文件计数 | 无 |
@@ -965,9 +966,9 @@ pyinstaller --onefile --windowed --noconfirm --name "__init__" \
 
 **当前状态（2026-10-22）**：
 
-- 已建立 `tests/`（pytest，113 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **112 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
+- 已建立 `tests/`（pytest，121 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **120 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
 - `tests/conftest.py` 通过 `importlib` 按路径加载被测模块以兼容中文目录；`load_zip` 的 `get_path` 与弹窗在 fixture 内 monkeypatch，规则 JSON/pkl 全部限制在 `tmp_path`，因此测试不读写仓库内运行产物。
-- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，25 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）、`test_scan_plugins.py`（manifest 解析容错、`scan_plugins` 跳过与告警汇总，16 项；用 `FakeSG` 桩顶掉 PySimpleGUI/tkinterdnd2 后按路径加载主程序模块）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
+- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，25 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）、`test_scan_plugins.py`（manifest 解析容错、`scan_plugins` 跳过与告警汇总，16 项；用 `FakeSG` 桩顶掉 PySimpleGUI/tkinterdnd2 后按路径加载主程序模块）、`test_installer_package_check.py`（安装前的包完整性校验：坏包不得删除已安装插件，10 项）、`test_installer_backup.py`（覆盖前自动备份：内容一致跳过、备份失败中止安装、不安全路径不删旧插件、批量导入返回备份信息，8 项）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
 - 仍无 CI 配置；上述手工入口照旧存在。
 
 ### 9.6 建议的冒烟测试清单
@@ -984,6 +985,7 @@ pyinstaller --onefile --windowed --noconfirm --name "__init__" \
 | 缓存 | 连续执行两个 SRT 插件 | 第二个插件处理的是第一个插件的输出 |
 | 导出 | 点击“导出并打开位置” | `output/` 出现文件，资源管理器打开 |
 | 插件导入 | `导入插件` 选择发布 zip | 版本确认后安装、按钮出现；仅在真正装上插件时重建窗口（失败/取消重装不重建） |
+| 导入覆盖备份 | 先改插件目录里的 `subtitle_rules.json`，再导入同名插件包 | 装完弹“插件文件已备份”，`cache/plugin_backup/<插件名>/<时间戳>/` 里有改动前的规则 |
 | ASS | 准备 ffmpeg 后处理 `test.ass` | 生成带透明通道的 `.mov` |
 
 ### 9.7 常见故障对照
@@ -1132,9 +1134,9 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 
 | 级别 | 问题 | 位置/证据 | 影响与建议 |
 |---|---|---|---|
-| 高 | **插件安装路径可被 manifest 的 `plugin_id` 带出 `plugins/`**：`plugin_path = get_path(f'plugins\\{plugin_id}')`，未校验 `..`/绝对路径；安装前直接 `shutil.rmtree(self.plugin_path)`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:55-68`、`267-280` | 导入不可信 zip 可能删除/覆盖插件目录之外的路径。建议限制 `plugin_id` 为安全字符集，并用 `os.path.realpath` 校验目标位于 `plugins/` 下 |
-| 高 | **安装失败仍返回成功**：`install()` 捕获异常后只弹窗，不返回 False；`check_version_and_install()` 随后无条件 `return True`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:228-265`、`267-285` | 主程序会把失败 zip 从列表移除并提示安装成功。建议让 `install()` 返回 bool/抛异常，并据此更新结果 |
-| 高 | **损坏的插件包会先删后装，毁掉正常插件**：`load_zip_json()` 只解析 manifest 的 name/version/description/plugin_id，不校验按钮的 `executable` 是否真在包内；`install()` 直接 `rmtree` 旧目录再 `extractall`，导入按钮指向不存在文件的 zip 时，旧插件已被删除、坏包照装，主程序扫描时才跳过并告警（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:106-126`、`175-226`、`228-231`、`267-285`；2026-10-22 真机测试 T11 复现 | 正常情况下用户可用插件会被一个残缺 zip 静默覆盖丢失。已增加 `validate_package()`：安装前静态校验每个 `executable` 可解析，失败即中止且不动旧目录 |
+| 高 | **插件安装路径可被 manifest 的 `plugin_id` 带出 `plugins/`**：`plugin_path = get_path(f'plugins\\{plugin_id}')`，未校验 `..`/绝对路径；安装前直接 `shutil.rmtree(self.plugin_path)`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:64-78`、`333-361` | 导入不可信 zip 可能删除/覆盖插件目录之外的路径。建议限制 `plugin_id` 为安全字符集，并用 `os.path.realpath` 校验目标位于 `plugins/` 下 |
+| 高 | **安装失败仍返回成功**：`install()` 捕获异常后只弹窗，不返回 False；`check_version_and_install()` 随后无条件 `return True`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:237-273`、`333-362` | 主程序会把失败 zip 从列表移除并提示安装成功。建议让 `install()` 返回 bool/抛异常，并据此更新结果 |
+| 高 | **损坏的插件包会先删后装，毁掉正常插件**：`load_zip_json()` 只解析 manifest 的 name/version/description/plugin_id，不校验按钮的 `executable` 是否真在包内；`install()` 直接 `rmtree` 旧目录再 `extractall`，导入按钮指向不存在文件的 zip 时，旧插件已被删除、坏包照装，主程序扫描时才跳过并告警（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:115-135`、`184-235`、`237-240`、`333-362`；2026-10-22 真机测试 T11 复现 | 正常情况下用户可用插件会被一个残缺 zip 静默覆盖丢失。已增加 `validate_package()`：安装前静态校验每个 `executable` 可解析，失败即中止且不动旧目录；成员路径校验也已提到 `rmtree` 之前 |
 | 中 | **`repeat` 规则完全未生效**：编辑器可增删改并保存，但 `_parse_repeat_config()` 是 `pass` 且从未被 `load_rules()` 调用；AC 自动机只加入 delete/replace（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt关键词替换/build_automaton.py:121-123`、`161-173`、`280-289`；`subtitle_rule_editor.py:315-327`、`508-550` | 用户会以为“重复词压缩”已生效。建议实现、或在编辑器中明确标注“未启用/预留”并禁用 |
 | 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
 | 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪**（已修复，见 CHANGELOG [2026-10-22]） | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
@@ -1145,13 +1147,14 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 中 | **主界面在插件运行期间阻塞**：`proc.communicate()` 在 UI 事件循环内同步等待，无超时、无取消、无进度 | `软件本体/插件调度主程序.py:394-401`、`549-651` | ASS 渲染或大批量 SRT 时窗口“无响应”。建议改为线程/进程异步 + 进度回传，或至少加忙碌提示 |
 | 中 | **SRT 前缀插件假设固定四行结构**：`range(2, len(lines), 4)`，多行字幕会错位；重复运行会叠加前缀；`processed` 统计的是输入数而非成功数（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:19-20`、`50-74`（行号已随 2026-10-22 重写失效，现状见 5.6） | 真实字幕（多行、样式标签、缺空行）可能被破坏。建议按空行分块解析，并记录成功数 |
 | 中 | **同名文件在缓存中互相覆盖**：两个插件都写 `cache/output/<basename>`；不同目录的同名 SRT 会覆盖 | `srt_keyword_editor.py:104-108`；`自动给srt加前缀.py:55-61`；`插件调度主程序.py:439-451` | 链式处理方便，但批量处理多目录时可能丢结果。建议保留相对路径或加哈希前缀 |
+| 中 | **导入/重装插件会静默覆盖用户改过的规则**：`install()` 直接 `rmtree` + `extractall`，而 `srt关键词替换` 的 zip 自带 `subtitle_rules.json`，同版本重装同样如此，程序只做版本比较、不提示（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/load_zip.py:333-362`；2026-10-22 真机测试 T15 复现 | 用户调过的规则会无声丢失，README 只能要求“升级前自己备份”。现已在 `rmtree` 之前自动备份内容有差异的同名文件到 `cache/plugin_backup/<plugin_id>/<时间戳>/`，备份失败则中止安装 |
 | 低 | **损坏的 manifest 会让主程序启动崩溃**：`scan_plugins` 直接 `json.load`，无 try/except；`init_program` 也没有捕获（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:118-120`（`json.load` 已包在 `_load_manifest` 的 try/except 内）、`508`（单次扫描）、`544`（汇总告警）；`tests/test_scan_plugins.py` | 一个插件配置写错会阻止整个工具启动。建议逐个 manifest 捕获异常并跳过/提示 |
 | 低 | **`scan_plugins()` 重复调用**（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:508` | 多一次扫描，当前无功能影响；可删除一次 |
 | 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位 | `软件本体/plugins/srt关键词替换/build_automaton.py:175-191` | 某些重叠词删除/替换结果不符合“长词优先”直觉。建议用区间调度/优先队列选择全局最优 |
 | 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复 | `build_automaton.py:133-138`；`subtitle_rule_editor.py:108-115` | 规则冲突不易发现。建议保存时做全局冲突检测 |
 | 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)` | `subtitle_rule_editor.py:214-218`（现状 `222`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。建议改用 `get_path(use_program_dir=True)`，与同文件 `178` 行一致 |
 | 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`** | `subtitle_rule_editor.py:852-857`；`srt关键词替换/__init__.py:66-90` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；建议统一返回/输出协议 |
-| 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数 | `load_zip.py:288-297` | 容易误用。建议删除或改为正式测试 |
+| 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数 | `load_zip.py:365-373` | 容易误用。建议删除或改为正式测试 |
 | 低 | **测试插件用 `raise KeyboardInterrupt` 模拟错误** | `软件本体/plugins/测试插件/__init__.py:68-70` | `KeyboardInterrupt` 不是 `Exception`，会走 Python 默认 traceback；仅调试用途 |
 | 低 | **仓库卫生**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 被跟踪；`plugin_log/` 未跟踪且无 `.gitignore` | `git ls-files`、`git status` | 运行产物/缓存入库，日志可能误提交。建议添加 `.gitignore`，清理已跟踪的缓存 |
 | 低 | **拖放路径解析在无花括号时按空格拆分** | `软件本体/插件调度主程序.py:68-79` | 某些来源的含空格路径会被拆坏；TkDND 通常会给含空格路径加花括号，风险有限 |
@@ -1229,7 +1232,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 文件 | 读取范围 | 用途 |
 |---|---|---|
 | `软件本体/插件调度主程序.py` | 全文 590 行 | 主程序架构、UI、调度、导入/导出 |
-| `软件本体/load_zip.py` | 全文 172 行 | 插件安装、版本比较、路径校验 |
+| `软件本体/load_zip.py` | 全文 418 行 | 插件安装、版本比较、路径校验、覆盖前备份 |
 | `软件本体/config.json` | 全文 | 版本/作者信息 |
 | `软件本体/plugins/srt加前缀/manifest.json`、`自动给srt加前缀.py` | 全文 | 最简插件协议 |
 | `软件本体/plugins/srt关键词替换/manifest.json` | 全文 | 多按钮/事件 |

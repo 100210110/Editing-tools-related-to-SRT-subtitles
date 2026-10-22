@@ -617,6 +617,28 @@ def main():
                 print("\n本次导入未安装任何插件，窗口保持不变\n")
                 continue
 
+            # 安装时覆盖了插件目录内已有文件的，统一提示一次备份位置，
+            # 用户改过的规则文件（如 subtitle_rules.json）就靠这份备份找回
+            backups = file_result.get("backups", {})
+            if backups:
+                backup_lines = []
+                for info in backups.values():
+                    files = info["files"]
+                    shown = files[:8]
+                    detail = "\n".join(f"    · {name}" for name in shown)
+                    if len(files) > len(shown):
+                        detail += f"\n    · 等共 {len(files)} 个文件"
+                    backup_lines.append(
+                        f"「{info['name']}」覆盖了以下原有文件：\n{detail}\n"
+                        f"    备份位置：{info['dir']}"
+                    )
+                sg.popup(
+                    "导入插件时覆盖了插件目录里的原有文件，原件已自动备份：\n\n"
+                    + "\n\n".join(backup_lines)
+                    + "\n\n如需找回，从备份目录把文件复制回插件目录即可。",
+                    title="插件文件已备份",
+                )
+
             set2 = set(success_list)
             result = [x for x in FILE_LIST if x not in set2]
             FILE_LIST = result

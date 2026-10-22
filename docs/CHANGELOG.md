@@ -74,6 +74,14 @@
 
 ### 修复
 
+- 导入/重装插件时**自动备份将被覆盖的文件**（TODO #27，2026-10-22 真机测试 T15）：插件 zip 自带 `subtitle_rules.json`，而 `install()` 直接 `rmtree` + `extractall`，升级或同版本重装都会静默覆盖用户调过的规则，此前只能靠 README 提醒"升级前自己备份"。现在 `install()` 的顺序固定为「成员路径校验 → 备份 → `rmtree` → `extractall`」，任一前置步骤失败都不会删除旧目录（`软件本体/load_zip.py`）。
+  - `_collect_overwrites()` 用 `ZipInfo.file_size` + CRC32 与磁盘文件比对，**只备份内容确有差异**的同名文件；大小相同再算 CRC32，内容一致直接跳过，避免把没改过的 `__init__.exe` 之类也堆一份。
+  - `_backup_overwrites()` 复制到 `cache/plugin_backup/<plugin_id>/<时间戳>/` 并保留相对路径；目录名同秒冲突时追加 `_1`、`_2`。备份目录刻意放在插件目录之外：既不被 `rmtree` 连带删除，也不会被主程序当成插件扫描。备份失败即抛异常，`install()` 返回 `False`，弹窗里附上已生成的备份路径。
+  - 顺带修正顺序缺陷：zip 成员路径校验原本在 `rmtree` **之后**，含 `../` 的坏包会先删掉旧目录再报错，现在提到最前面。
+  - `import_plugin_list()` 返回值新增 `backups`（`{zip_path: {name, dir, files}}`）；主程序在安装成功后弹一次「插件文件已备份」，列出被覆盖的文件（超过 8 个折叠为"等共 N 个"）与备份目录，批量导入不会逐个刷屏（`软件本体/插件调度主程序.py:620-640`）。
+  - 新增 `tests/test_installer_backup.py`（8 项）：覆盖用户改过的规则文件前先备份、内容一致不产生备份、全新安装不备份、同版本重装同样备份、备份失败不删除旧插件、不安全路径的包不删旧插件、批量导入返回备份信息、无覆盖时不返回备份；`pytest tests/` **120 passed / 1 skipped**。
+  - 真实包验证（`srt关键词替换-v1.4.0.zip`，含 37 MB `__init__.exe`）：预置 1.3.0 与被改过的规则后导入，备份 `manifest.json` + `subtitle_rules.json` 两份、内容一致的 `__init__.exe` 跳过，备份落在 `cache/plugin_backup/` 下、`plugins/` 外，7 项断言全通过。
+  - `README.md`「规则配置」第 3 条与「导入插件」节同步改写：不再要求用户手动复制，改为说明自动备份位置与找回方法；`.gitignore` 新增 `软件本体/cache/plugin_backup/`，避免备份目录被误提交。
 - 导入插件前增加**包完整性校验**（TODO #26，2026-10-22 真机测试 T11）：`PluginInstaller.validate_package()` 用 `zipfile.namelist()` 静态检查 manifest 里每个按钮的 `executable` 能否在包内解析到（原样 → 去扩展名 + `.py` → + `.exe`，与主程序 `_resolve_executable` 同源），失败即返回 `False`，原因写入 `rejection_reason`；`check_version_and_install()` 在版本比较之前调用它。修复前 `install()` 先 `rmtree` 旧目录再 `extractall`，导入一个按钮指向不存在文件的 zip 会**先删掉正常插件、再装上一个加载失败的空壳**，主程序扫描时才整插件跳过告警；现在旧目录一个字节都不动。同时拦下多按钮缺 `label`/`executable`、`buttons` 为空、exe 只在压缩包子目录里等非法包（`软件本体/load_zip.py`）。新增 `tests/test_installer_package_check.py`（12 项，含“坏包不得删除已安装插件”核心回归）；`pytest tests/` 112 passed / 1 skipped。配套调整导入失败提示：原来坏包会**连弹两次**（“插件包不完整”详情 + “以下文件未导入”汇总），现在单包不弹窗、原因经 `failed_reasons` 汇总到主程序的一次弹窗里，标题固定为“导入插件失败”，正文在文件路径下缩进显示「原因：…」；`validate_package(show_error=False)` 与 `check_version_and_install(show_error=False)` 保留默认弹窗行为，直接调用时不受影响（`软件本体/load_zip.py`、`软件本体/插件调度主程序.py:601-611`）。源码模式真机复验：坏包只弹一次、旧插件字节未变，好包仍可正常升级。
 - 插件安装前校验 manifest 的 `plugin_id`（未提供时回退 `name`）：仅允许字母、数字、下划线、连字符与中文，拒绝空值、`.`/`..`、路径分隔符、盘符与绝对路径，校验失败时中止安装并提示（`软件本体/load_zip.py`）。
 - 用 `os.path.realpath` + `os.path.commonpath` 校验安装目标必须位于 `plugins/` 下（Windows 经 `normcase` 忽略大小写），并在 `shutil.rmtree` 前再次校验；原有 zip 成员路径检查保持不变（`软件本体/load_zip.py`）。

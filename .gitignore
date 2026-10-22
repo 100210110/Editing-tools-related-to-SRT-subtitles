@@ -4,6 +4,7 @@
 # 运行缓存：主程序/插件的输入输出暂存与最终导出（实际位于 软件本体/ 下）
 软件本体/cache/output/
 软件本体/cache/temp/
+软件本体/cache/plugin_backup/
 软件本体/output/
 软件本体/plugins/*/plugin_log/
 

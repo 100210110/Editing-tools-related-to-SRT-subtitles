@@ -4,12 +4,18 @@ import os
 import re
 import sys
 import shutil
+import time
+import zlib
 import PySimpleGUI as sg
 from packaging.version import parse as parse_version
 
 
 # 插件目录名白名单：字母、数字、下划线、连字符、中文
 PLUGIN_ID_PATTERN = re.compile(r'^[\w\u4e00-\u9fff-]+$')
+
+# 安装前自动备份的被覆盖文件存放处（相对程序目录），刻意放在插件目录之外：
+# 既不会被 rmtree 删掉，也不会被主程序当成插件目录扫描。
+PLUGIN_BACKUP_ROOT = os.path.join("cache", "plugin_backup")
 
 
 def get_path(relative_path=None, use_program_dir=True):
@@ -49,6 +55,9 @@ class PluginInstaller:
         self.plugin_path = None
         # 包完整性校验失败的原因（单行文本），供批量导入汇总提示使用
         self.rejection_reason = None
+        # 本次安装前备份了哪些将被覆盖的文件（相对路径列表）与备份目录
+        self.backed_up = []
+        self.backup_dir = None
 
     # 校验 plugin_id，防止拼出 plugins/ 之外的安装路径
     @staticmethod
@@ -263,24 +272,92 @@ class PluginInstaller:
 
         return self.install()  # 返回真实安装结果
 
+    # 计算磁盘文件的 CRC32，用于判断"覆盖前后内容是否真的不一样"
+    @staticmethod
+    def _file_crc32(path):
+        crc = 0
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                crc = zlib.crc32(chunk, crc)
+        return crc & 0xFFFFFFFF
+
+    # 找出 zip 会覆盖掉的现有文件，只保留内容确有差异的
+    def _collect_overwrites(self, zf):
+        """返回 [(zip 内相对路径, 磁盘绝对路径)]。
+
+        只读 ZipInfo 的 file_size / CRC，不读 zip 内容；大小不同直接判定为不同，
+        大小相同再算磁盘文件 CRC32。内容一致的文件不备份——用户没改过的东西
+        备份出来只会堆垃圾，也会让"已备份 N 个文件"的提示失真。
+        """
+        overwrites = []
+        for info in zf.infolist():
+            member = info.filename.replace("\\", "/")
+            if not member or member.endswith("/") or info.is_dir():
+                continue
+            target = os.path.join(self.plugin_path, *member.split("/"))
+            if not os.path.isfile(target):
+                continue
+            if (os.path.getsize(target) == info.file_size
+                    and self._file_crc32(target) == info.CRC):
+                continue
+            overwrites.append((member, target))
+        return overwrites
+
+    # 把将被覆盖的旧文件复制到 cache/plugin_backup/<插件>/<时间戳>/
+    def _backup_overwrites(self, overwrites):
+        """备份完成后才允许调用方 rmtree；本方法抛异常即代表安装必须中止。
+
+        备份失败时上游会直接返回，旧插件目录保持原样——宁可装不上，
+        也不能出现"旧文件删了、新文件没解出来"的空窗。
+        """
+        plugin_id = os.path.basename(self.plugin_path)
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        root = get_path(PLUGIN_BACKUP_ROOT)
+        backup_dir = os.path.join(root, plugin_id, stamp)
+        index = 1
+        while os.path.exists(backup_dir):
+            backup_dir = os.path.join(root, plugin_id, f"{stamp}_{index}")
+            index += 1
+        for member, target in overwrites:
+            dest = os.path.join(backup_dir, *member.split("/"))
+            parent = os.path.dirname(dest)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            shutil.copy2(target, dest)
+        self.backup_dir = backup_dir
+        self.backed_up = [member for member, _ in overwrites]
+        print(f"已备份 {len(overwrites)} 个将被覆盖的文件到: {backup_dir}", file=sys.stderr)
+        return backup_dir
+
     # 安装插件，解压到 plugins 目录
     def install(self):
+        """解压安装。顺序：成员路径校验 → 备份被覆盖文件 → 清理旧目录 → 解压。
+
+        前三步任一失败都不会走到 rmtree，已安装插件保持可用。
+        """
+        self.backed_up = []
+        self.backup_dir = None
         try:
             self.plugin_path = self._validate_install_path(self.plugin_path)
-            # 目标存在时清理旧插件；清理失败会进入 except 并返回 False
-            if os.path.exists(self.plugin_path):
-                shutil.rmtree(self.plugin_path)
             with zipfile.ZipFile(self.zip_path, 'r', metadata_encoding='utf-8') as zf:
+                # 先校验成员路径：坏包必须在动磁盘之前被拦下
                 for member in zf.namelist():
                     normalized = member.replace('\\', '/')
                     if normalized.startswith('/') or '..' in normalized.split('/') or os.path.isabs(member):
                         raise ValueError(f"不安全路径: {member}")
+                overwrites = self._collect_overwrites(zf)
+                if overwrites:
+                    self._backup_overwrites(overwrites)
+                # 目标存在时清理旧插件；清理失败会进入 except 并返回 False
+                if os.path.exists(self.plugin_path):
+                    shutil.rmtree(self.plugin_path)
                 # 将所有文件解压到 ./plugins/my_plugin/ 目录
                 zf.extractall(path=self.plugin_path)
                 print(f"成功安装: {self.name}")
         except Exception as e:
             print(f"安装插件出错: {e}", file=sys.stderr)
-            sg.popup_error(f"安装插件出错: {e}")
+            hint = f"\n\n原有文件已备份到：\n{self.backup_dir}" if self.backup_dir else ""
+            sg.popup_error(f"安装插件出错: {e}{hint}")
             return False
         return True
 
@@ -301,6 +378,7 @@ def import_plugin_list(zip_path_list: list):
     failed_list = []  # 安装失败的文件路径列表
     skipped_list = []  # 用户取消重装的文件路径列表，不计为失败
     failed_reasons = {}  # 失败原因（仅包完整性校验失败时记录），供调用方汇总展示
+    backups = {}  # 安装时覆盖了插件目录内已有文件的记录，供调用方统一提示
     for zip_path in zip_path_list:
         plugin_zip = PluginInstaller(zip_path)
         if not plugin_zip.load_zip_json():
@@ -311,6 +389,12 @@ def import_plugin_list(zip_path_list: list):
         install_result = plugin_zip.check_version_and_install(show_error=False)
         if install_result is True:
             success_list.append(zip_path)
+            if plugin_zip.backup_dir:
+                backups[zip_path] = {
+                    "name": plugin_zip.name,
+                    "dir": plugin_zip.backup_dir,
+                    "files": list(plugin_zip.backed_up),
+                }
         elif install_result is False:
             failed_list.append(zip_path)
             if plugin_zip.rejection_reason:
@@ -322,7 +406,8 @@ def import_plugin_list(zip_path_list: list):
         "success_list": success_list,
         "failed_files": failed_list,
         "failed_reasons": failed_reasons,
-        "skipped_files": skipped_list
+        "skipped_files": skipped_list,
+        "backups": backups
     }
     
 
