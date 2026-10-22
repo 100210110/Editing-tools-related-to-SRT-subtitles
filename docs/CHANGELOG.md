@@ -31,8 +31,14 @@
 - `check_version_and_install()` 改为三态返回：`True`=安装成功、`False`=安装失败、`None`=用户取消重装；取消不再计为失败（`软件本体/load_zip.py`）。
 - `import_plugin_list()` 按单项结果归入 `success_list` / `failed_files` / `skipped_files`；主程序现有逻辑无需改动，仍只从 `FILE_LIST` 移除成功项，失败项保留并弹窗，取消项保留且不报错（`软件本体/load_zip.py`）。
 - 验证结论（2026-10-22，临时无头脚本 + 模拟弹窗）：正常 zip 成功；非 zip、缺 `manifest.json`、缺 `name`/`version`、含越界成员 zip、模拟清理失败均进入 `failed_files` 且不删除既有目录；同版本/低版本取消重装进入 `skipped_files`，不计失败；混合导入三条列表均正确。真实弹窗点击尚未手工验证，脚本以模拟 `No`/`Yes` 覆盖返回语义。
-- 归档自 `TODO.md` #1、#2，编号不复用。
+- pkl 缓存校验改用规则 JSON 的内容哈希：`json.dumps(json.loads(content), sort_keys=True, ensure_ascii=False)` 规范化后取 SHA-256，纯缩进/键顺序变化不触发重建；新增 `CACHE_SCHEMA_VERSION = 2` 标识载荷结构，载荷写入 `json_content_hash` 与 `schema_version`（`软件本体/plugins/srt关键词替换/build_automaton.py`）。
+- `_load_from_cache()` 改为完整校验链：pkl 缺失、`pickle.load` 异常、载荷非 dict、schema 版本不一致、内容哈希不一致、必要字段缺失均返回 `None` 并自动重建；`force_rebuild=True` 跳过校验强制重建并写回新哈希。原 `_is_cache_valid()`（仅按 mtime 判断）已移除。
+- `load_rules()` 在缓存校验前先调用 `_get_json()` 重新读取当前 JSON，保证哈希基于实际生效的规则文件（含回退写入的默认配置）；重建前清空旧解析状态，避免复用实例时残留旧规则。
+- 确认 `subtitle_rules.pkl` 已不受版本控制（自提交 `9cade55` 起移出索引），`.gitignore` 已含 `*.pkl`；工作区 pkl 保留，本任务无需再执行 `git rm --cached`。
+- 补充 AI_CONTEXT 维护规则：§10.5 新增「AI_CONTEXT §11 修复标注」，§11 已修复条目在问题描述末尾括注日期，不改写原诊断；本次已为 #1、#2、#3、#5 添加标注（`docs/AI_CONTEXT.md`）。
+- 验证结论（2026-10-22，临时无头脚本，45 项全通过）：覆盖冷启动生成 pkl、mtime 反向仍命中、JSON 内容变化失效、仅格式化命中、schema 版本变化失效、损坏/非字典/旧字段缺失 pkl 自动重建、`force_rebuild` 跳过校验并更新哈希、`_load_from_cache()` 返回值；真实默认规则在构建/命中/失效三条路径下 repeat 行为与缓存状态一致。未走主程序与规则编辑器 GUI，已记入 TODO 长期测试补强。
+- 归档自 `TODO.md` #1、#2、#5，编号不复用。
 
 ### 说明
 
-- TODO 初始化后完成前三项（#1 插件安装路径穿越、#2 安装失败仍报成功、#3 repeat 规则）；其余 21 项待办不变。
+- TODO 初始化后已完成 #1、#2、#3、#5（插件安装路径穿越、安装失败仍报成功、repeat 规则、pkl 缓存校验与入库）；其余 20 项待办不变。

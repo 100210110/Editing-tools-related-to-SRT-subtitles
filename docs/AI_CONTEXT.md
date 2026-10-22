@@ -365,7 +365,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 2 | `event_main` 调用 `srt_keyword_editor.run(params)` | `17-24` |
 | 3 | 从请求中取 `output_path`、`pending_file_lists`，创建输出目录 | `srt_keyword_editor.py:63-76` |
 | 4 | 构建 `SubtitleRuleProcessor`，调用 `load_rules()` | `86-88` |
-| 5 | 判断 pkl 缓存是否比 JSON 新：是则 `pickle.load` 恢复自动机、映射与 repeat 状态；否则重新解析 JSON 并构建自动机；旧缓存缺少 repeat 键时自动重建 | `build_automaton.py:339-403` |
+| 5 | 校验 pkl 缓存的 `schema_version` 与 JSON 内容哈希：均匹配则 `pickle.load` 恢复自动机、映射与 repeat 状态；否则重新解析 JSON、构建自动机并写回缓存（`force_rebuild=True` 跳过校验强制重建） | `build_automaton.py:343-437` |
 | 6 | 解析 `delete`：所有词加入删除列表；`profanity` 子类加入敏感词集合；去重 | `104-112` |
 | 7 | 解析 `replace`：递归遍历分组；`correction` 节点建立“源词 → 正确词”双向映射；`group` 节点递归子项；`regex` 空操作 | `163-186` |
 | 8 | 解析 `repeat`：`enabled=false` 的规则整条跳过；填充重复词规则映射（`max_times`、间隔开关、门槛、分隔符） | `122-161` |
@@ -594,7 +594,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 ### 6.6 `subtitle_rules.pkl` 缓存载荷
 
-`_save_to_cache()` 写入以下键（`build_automaton.py:369-386`）：
+`_save_to_cache()` 写入以下键（`build_automaton.py:390-409`）：
 
 | 键 | 内容 |
 |---|---|
@@ -607,8 +607,10 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | `replace_source_to_word` | 源词 → 正确词 |
 | `all_keywords` | 所有关键词（当前仅供缓存/调试） |
 | `raw_config` | 原始规则 JSON |
+| `json_content_hash` | 规则 JSON 规范化后的 SHA-256（`_calculate_json_hash()`） |
+| `schema_version` | 缓存载荷结构版本，当前 `CACHE_SCHEMA_VERSION = 2` |
 
-缓存有效性只检查 `cache_mtime > json_mtime`（`339-347`），不校验内容哈希、代码版本或 schema 版本。旧缓存缺少 `repeat_automaton` / `repeat_rule_map` 时，`_load_from_cache()` 返回 `False`，`load_rules()` 会自动强制重建（`349-403`）。
+缓存有效性校验（`_load_from_cache()`，`354-388`）：载荷必须是 dict；`schema_version` 必须等于 `CACHE_SCHEMA_VERSION`；`json_content_hash` 必须等于当前规则 JSON 规范化后的 SHA-256（`json.dumps(json.loads(content), sort_keys=True, ensure_ascii=False)` 后计算，纯格式变化不失效）。任一不匹配、pkl 缺失/损坏或字段不完整时返回 `None`，`load_rules()` 自动重建并写回（`343-437`）。
 
 ### 6.7 运行时消息模型
 
@@ -941,7 +943,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 | `ModuleNotFoundError: PyQt5` | 依赖清单缺少 PyQt5 | 安装 `PyQt5` |
 | `不是, 你 FFmpeg 呢` | `ffmpeg/bin/ffmpeg.exe` 不存在 | 放置 FFmpeg 或修改路径 |
 | 打包后点击插件没反应 | 打包模式只接受插件 exe，源码目录里是 `.py` | 打包插件或使用开发模式 |
-| 规则修改后不生效 | pkl 缓存 mtime 比 JSON 新 | 删除 pkl 或调用 `rebuild_cache(force_rebuild=True)` |
+| 规则修改后不生效 | pkl 缓存未按当前 JSON 失效（哈希/schema 校验异常）或缓存读写失败 | 检查哈希/schema 版本，或删除 pkl、调用 `rebuild_cache(force_rebuild=True)` 强制重建 |
 | 导入插件后报错/目录异常 | manifest 的 `plugin_id` 含路径字符，或版本号非法 | 检查 manifest，见 11 节 |
 | 面板没有按钮 | manifest 缺少/损坏，或可执行文件不存在 | 查看控制台/日志中的 `警告` |
 | ASS 输出失败 | FFmpeg 编码器缺失、字体/字幕路径问题 | 查看 `cache/temp/ffmpeg-*.log` |
@@ -1056,6 +1058,12 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
   修复细节不入本文，进 CHANGELOG。
 - docs 随代码走同一次提交，不做独立的 docs 提交（除非本次任务只涉及文档）。
 
+#### AI_CONTEXT §11 修复标注
+- §11 条目修复后，在「问题」列描述末尾加 `（已修复，见 CHANGELOG [YYYY-MM-DD]）`
+- 不删除、不改写原诊断内容，保留快照性质
+- 日期取 CHANGELOG 中对应修复条目的小节日期
+- §11 标题下方的说明块末尾补一句：「已修复条目在问题描述末尾括注」
+
 ### 10.6 工程规范缺口
 
 - 无 linter/formatter 配置（flake8、ruff、black、prettier 等）。
@@ -1069,14 +1077,15 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 ## 11. 已知问题与技术债
 
 > 级别为交接评估建议，不代表原作者的优先级。所有问题均来自静态阅读，未做运行时复现。
+> 已修复条目在问题描述末尾括注。
 
 | 级别 | 问题 | 位置/证据 | 影响与建议 |
 |---|---|---|---|
-| 高 | **插件安装路径可被 manifest 的 `plugin_id` 带出 `plugins/`**：`plugin_path = get_path(f'plugins\\{plugin_id}')`，未校验 `..`/绝对路径；安装前直接 `shutil.rmtree(self.plugin_path)` | `软件本体/load_zip.py:74-77`、`121-130` | 导入不可信 zip 可能删除/覆盖插件目录之外的路径。建议限制 `plugin_id` 为安全字符集，并用 `os.path.realpath` 校验目标位于 `plugins/` 下 |
-| 高 | **安装失败仍返回成功**：`install()` 捕获异常后只弹窗，不返回 False；`check_version_and_install()` 随后无条件 `return True` | `软件本体/load_zip.py:117-118`、`121-134`、`157-161` | 主程序会把失败 zip 从列表移除并提示安装成功。建议让 `install()` 返回 bool/抛异常，并据此更新结果 |
-| 已解决 | **`repeat` 规则未生效**（2026-10-22 已实现） | `build_automaton.py:122-161`（解析）、`260-313`（压缩/分隔）、`388-403`（加载入口）；`subtitle_rule_editor.py:19-70`（对话框提示） | 已支持压缩、可选分隔、外层禁用与缓存扩展，详见 `CHANGELOG.md` [未发布] → 新增 |
+| 高 | **插件安装路径可被 manifest 的 `plugin_id` 带出 `plugins/`**：`plugin_path = get_path(f'plugins\\{plugin_id}')`，未校验 `..`/绝对路径；安装前直接 `shutil.rmtree(self.plugin_path)`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:74-77`、`121-130` | 导入不可信 zip 可能删除/覆盖插件目录之外的路径。建议限制 `plugin_id` 为安全字符集，并用 `os.path.realpath` 校验目标位于 `plugins/` 下 |
+| 高 | **安装失败仍返回成功**：`install()` 捕获异常后只弹窗，不返回 False；`check_version_and_install()` 随后无条件 `return True`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:117-118`、`121-134`、`157-161` | 主程序会把失败 zip 从列表移除并提示安装成功。建议让 `install()` 返回 bool/抛异常，并据此更新结果 |
+| 中 | **`repeat` 规则完全未生效**：编辑器可增删改并保存，但 `_parse_repeat_config()` 是 `pass` 且从未被 `load_rules()` 调用；AC 自动机只加入 delete/replace（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt关键词替换/build_automaton.py:121-123`、`161-173`、`280-289`；`subtitle_rule_editor.py:315-327`、`508-550` | 用户会以为“重复词压缩”已生效。建议实现、或在编辑器中明确标注“未启用/预留”并禁用 |
 | 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
-| 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪** | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
+| 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪**（已修复，见 CHANGELOG [2026-10-22]） | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
 | 中 | **无正式依赖清单**：仓库没有 `requirements.txt`/`pyproject.toml`；`.venv/old_requirements.txt` 缺少 PyQt5，且包含未使用包 | `.venv/old_requirements.txt`；`subtitle_rule_editor.py:5-11`；`pysub-parser`/`Unidecode` 未被 import | 新环境难以复现，规则编辑器容易因缺 PyQt5 失败。建议整理最小依赖清单并区分 runtime/dev/build |
 | 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者 | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
 | 中 | **ASS 插件缺少 FFmpeg**：代码要求 `ffmpeg/bin/ffmpeg.exe`，仓库该目录为空，发布包中也未发现 FFmpeg | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`；目录清单 | 源码环境下 ASS 功能不可用。建议文档说明外部依赖，或在发布包中附带并校验版本 |

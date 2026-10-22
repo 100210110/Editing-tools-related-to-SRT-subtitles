@@ -1,4 +1,4 @@
-import os, sys, json
+import os, sys, json, hashlib
 from typing import Dict, List, Set
 import ahocorasick
 import pickle
@@ -8,6 +8,8 @@ from functools import wraps
 
 # 默认配置
 default_config = {"delete":{"profanity":["傻逼","傻波","卧槽","哎呦我草","我操","我草","我靠","我去","哦李现","what's up","what the fuck","我的妈","我的fuck","fuck","你他妈的","你他喵的","ntmd","你妈的","nmd","他妈的","他喵的","TMD","tmd","妈的","喵的","md","你妈","nm","他妈","他喵","tm","oh shit"],"others":["呃","huh","uh"]},"repeat":[{"word":"完了","enabled":True,"max_times":2,"interval":{"enabled":True,"min_consecutive":3,"separator":" "}},{"word":"哈","enabled":True,"max_times":3,"interval":{"enabled":False,"min_consecutive":3,"separator":" "}},{"word":"不行","enabled":True,"max_times":3,"interval":{"enabled":True,"min_consecutive":3,"separator":" "}},{"word":"我知道","enabled":True,"max_times":2,"interval":{"enabled":True,"min_consecutive":2,"separator":" "}},{"word":"别","enabled":True,"max_times":3,"interval":{"enabled":False,"min_consecutive":3,"separator":" "}}],"replace":[{"word":"我的世界","type":"group","enabled":True,"items":[{"word":"MCUP名字","type":"group","enabled":True,"items":[{"word":"卡慕","enabled":True,"source":["卡布","卡莫","卡木","卡不","卡姆","Kamu","karm","come","卡慕 on","扛我","Kobe","carm","Kame","蛤蟆","Carmore","Carmel","考不"]},{"word":"卡慕SaMa","enabled":True,"source":["卡慕sama","卡慕Sama","卡慕沙发","卡慕沙吧","砍不上吗","卡慕萨巴","卡慕沙吗","卡穆萨玛"]},{"word":"谭俊峰","enabled":True,"source":["传进风"]},{"word":"米洛","enabled":True,"source":["米诺","米罗","笔落","余姚","比洛","米拉","米露","米勒","明总"]},{"word":"萝卜吃米洛","enabled":True,"source":["萝卜吃鱼了","罗旭罗","罗旭"]},{"word":"宁宇航","enabled":True,"source":["李宇航"]},{"word":"碧月狐","enabled":True,"source":["碧月湖","闭月狐","毕业胡","b月湖","b月会","B2胡","月壶","夜壶","壁虎","鳖胡","别胡","憋活","别活"]},{"word":"曹某","enabled":True,"source":["Tom"]},{"word":"曹小龙","enabled":True,"source":["草药龙","张小龙","操小龙","超小龙","曹勇","沙拉龙","条龙"]},{"word":"qiqi","enabled":True,"source":["KIKI","KI KI","KKI","QIQI","QI QI","KIQI"]},{"word":"Q3","enabled":True,"source":["q3"]},{"word":"贺子鹏","enabled":True,"source":["蔡子鹏","鹤头","赫德王","赫兹峰"]},{"word":"药儿","enabled":True,"source":["幺儿"]},{"word":"流赫","enabled":True,"source":["流贺","刘贺","刘赫","刘河","刘恒"]},{"word":"死睿","enabled":True,"source":["sweet","Siri","THREE"]},{"word":"烦华","enabled":True,"source":["芳芳"]},{"word":"鸽一品","enabled":True,"source":["葛一平","GEP","隔一天","割一瓢"]},{"word":"幕川北","enabled":True,"source":["木川北","莫川北"]}]},{"word":"操作","type":"group","enabled":True,"items":[{"word":"控距","enabled":True,"source":["控狙"]},{"word":"TP","enabled":True,"source":["TV"]},{"word":"跳劈","enabled":True,"source":["跳p"]}]},{"word":"游戏内事物","type":"group","enabled":True,"items":[{"word":"掉落物","enabled":True,"source":["掉了物"]},{"word":"附魔金","enabled":True,"source":["复活金"]},{"word":"蘑菇牛","enabled":True,"source":["蘑菇流"]},{"word":"猪灵","enabled":True,"source":["朱玲"]},{"word":"坚守者","enabled":True,"source":["接受者","监视者"]},{"word":"烈焰人","enabled":True,"source":["猎人"]},{"word":"末影人","enabled":True,"source":["梦人"]},{"word":"末影龙","enabled":True,"source":["莫云龙"]},{"word":"龙息","enabled":True,"source":["浓稀"]},{"word":"细雪","enabled":True,"source":["气血"]},{"word":"煤炭","enabled":True,"source":["没炭"]},{"word":"岩浆湖","enabled":True,"source":["人江湖"]},{"word":"岩浆","enabled":True,"source":["岩尖"]},{"word":"刷怪笼","enabled":True,"source":["创二龙"]},{"word":"猪灵堡垒","enabled":True,"source":["珠林堡垒","朱宁堡垒"]},{"word":"末影水晶","enabled":True,"source":["魔女水晶"]},{"word":"主世界","enabled":True,"source":["主界"]}]}]},{"word":"口语","type":"group","enabled":True,"items":[{"word":"OK","enabled":True,"source":["okay"]},{"word":"厉害","enabled":True,"source":["牛逼"]},{"word":"懂你意思","enabled":True,"source":["don't listen"]},{"word":"好枪","enabled":True,"source":["烤箱"]}]},{"word":"误识别英语","type":"group","enabled":True,"items":[{"word":"这","enabled":True,"source":["this"]}]},{"word":"三角洲","type":"group","enabled":True,"items":[{"word":"地点","type":"group","enabled":True,"items":[{"word":"巴克什","enabled":True,"source":["8个10","挖个10","BUG10","巴克斯"]},{"word":"普坝","enabled":True,"source":["普巴"]},{"word":"大坝","enabled":True,"source":["大巴"]},{"word":"坝顶","enabled":True,"source":["霸顶"]},{"word":"蓝汀","enabled":True,"source":["蓝厅"]},{"word":"水泥厂","enabled":True,"source":["水泥铲"]},{"word":"牢区","enabled":True,"source":["老区"]},{"word":"西楼","enabled":True,"source":["西路"]},{"word":"蓝数","enabled":True,"source":["蓝树"]},{"word":"蓝核","enabled":True,"source":["蓝盒"]}]},{"word":"干员","type":"group","enabled":True,"items":[{"word":"麦晓雯","enabled":True,"source":["麦小文"]},{"word":"威龙","enabled":True,"source":["维鲁"]},{"word":"蜂医","enabled":True,"source":["风衣"]},{"word":"乌鲁鲁","enabled":True,"source":["乌噜噜","咕噜噜"]}]},{"word":"操作","type":"group","enabled":True,"items":[{"word":"报点","enabled":True,"source":["爆点"]},{"word":"破译","enabled":True,"source":["破夜"]},{"word":"卡战备","enabled":True,"source":["卡站位"]},{"word":"护航","enabled":True,"source":["护盘"]},{"word":"精标","enabled":True,"source":["金标"]}]},{"word":"物品","type":"group","enabled":True,"items":[{"word":"武器","type":"group","enabled":True,"items":[{"word":"AUG","enabled":True,"source":["AOG"]}]},{"word":"装备","type":"group","enabled":True,"items":[{"word":"弹挂","enabled":True,"source":["半挂"]},{"word":"六套","enabled":True,"source":["刘涛","6炮"]}]},{"word":"物资","type":"group","enabled":True,"items":[{"word":"本地特色首饰","enabled":True,"source":["本地特色手势"]},{"word":"希望之钥","enabled":True,"source":["希望之药"]}]}]}]}]}
+# 缓存载荷结构版本：字段或结构变化时递增
+CACHE_SCHEMA_VERSION = 2
 logs = "记录日志"
 
 
@@ -338,21 +340,38 @@ class SubtitleRuleProcessor:
         cleaned_text = self._apply_operations(text, matches)
         return self._apply_repeat_rules(cleaned_text)
     
-    def _is_cache_valid(self) -> bool:
-        """检查缓存文件是否比 JSON 配置文件新"""
+    def _calculate_json_hash(self):
+        """计算规则 JSON 规范化后的 SHA-256，纯格式变化不触发重建"""
+        try:
+            with open(self.json_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            normalized = json.dumps(json.loads(content), sort_keys=True, ensure_ascii=False)
+            return hashlib.sha256(normalized.encode('utf-8')).hexdigest()
+        except Exception as e:
+            print(f"计算规则哈希失败: {e}", file=sys.stderr)
+            return None
+
+    def _load_from_cache(self):
+        """校验并加载缓存；成功返回载荷，失败返回 None"""
         if not os.path.exists(self.cache_path):
-            return False
-        if not os.path.exists(self.json_path):
-            return False
-        json_mtime = os.path.getmtime(self.json_path)
-        cache_mtime = os.path.getmtime(self.cache_path)
-        return cache_mtime > json_mtime
-    
-    def _load_from_cache(self) -> bool:
-        """尝试从缓存文件加载自动机及相关数据"""
+            return None
         try:
             with open(self.cache_path, 'rb') as f:
                 data = pickle.load(f)
+        except Exception as e:
+            print(f"加载缓存失败: {e}", file=sys.stderr)
+            return None
+        if not isinstance(data, dict):
+            print("缓存载荷格式错误，需要重建", file=sys.stderr)
+            return None
+        if data.get('schema_version') != CACHE_SCHEMA_VERSION:
+            print("缓存 schema 版本不一致，需要重建", file=sys.stderr)
+            return None
+        current_hash = self._calculate_json_hash()
+        if current_hash is None or data.get('json_content_hash') != current_hash:
+            print("缓存内容哈希不一致，需要重建", file=sys.stderr)
+            return None
+        try:
             # 恢复所有必要属性
             self.automaton = data['automaton']
             self.repeat_automaton = data['repeat_automaton']
@@ -363,10 +382,10 @@ class SubtitleRuleProcessor:
             self.replace_source_to_word = data['replace_source_to_word']
             self.all_keywords = data['all_keywords']
             self.raw_config = data.get('raw_config')  # 可选
-            return True
         except Exception as e:
-            print(f"加载缓存失败: {e}", file=sys.stderr)
-            return False
+            print(f"缓存数据不完整: {e}", file=sys.stderr)
+            return None
+        return data
     
     def _save_to_cache(self):
         """将当前自动机及相关数据保存到缓存文件"""
@@ -380,6 +399,8 @@ class SubtitleRuleProcessor:
             'replace_source_to_word': self.replace_source_to_word,
             'all_keywords': self.all_keywords,
             'raw_config': self.raw_config,
+            'json_content_hash': self._calculate_json_hash(),
+            'schema_version': CACHE_SCHEMA_VERSION,
         }
         try:
             with open(self.cache_path, 'wb') as f:
@@ -389,20 +410,27 @@ class SubtitleRuleProcessor:
 
     def load_rules(self, force_rebuild: bool = False):
         """统一加载规则（外部调用入口）"""
-        if force_rebuild or not self._is_cache_valid():
-            print("构建自动机并缓存...", file=sys.stderr)
-            self._get_json()
-            self._parse_delete_config()
-            self._parse_replace_config()
-            self._parse_repeat_config()
-            self._build_all_keywords()
-            self._build_automaton()
-            self._save_to_cache()
+        # 重新读取当前 JSON，保证哈希校验与重建使用同一份内容
+        self.raw_config = None
+        self._get_json()
+        if force_rebuild:
+            print("强制重建自动机并缓存...", file=sys.stderr)
+        elif self._load_from_cache() is not None:
+            return
         else:
-            if not self._load_from_cache():
-                # 缓存加载失败，回退到构建
-                print("缓存无效，重新构建...", file=sys.stderr)
-                self.load_rules(force_rebuild=True)
+            print("缓存无效，重新构建...", file=sys.stderr)
+        # 重建前清空旧解析状态，避免复用实例时残留旧规则
+        self.delete_words = []
+        self.profanity_set = set()
+        self.repeat_rule_map = {}
+        self.replace_word_to_sources = {}
+        self.replace_source_to_word = {}
+        self._parse_delete_config()
+        self._parse_replace_config()
+        self._parse_repeat_config()
+        self._build_all_keywords()
+        self._build_automaton()
+        self._save_to_cache()
     
     def rebuild_cache(self):
         """手动强制重建缓存（配置修改后调用）"""
