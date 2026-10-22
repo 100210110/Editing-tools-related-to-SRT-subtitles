@@ -6,7 +6,8 @@ import pytest
 
 
 def _manifest(plugin_id=None, name="测试插件", version="1.0.0", **extra):
-    data = {"name": name, "version": version, **extra}
+    # executable 指向 conftest ZipFactory 默认附带的占位文件，保证包能通过 validate_package
+    data = {"name": name, "version": version, "executable": "__init__.exe", **extra}
     if plugin_id is not None:
         data["plugin_id"] = plugin_id
     return data

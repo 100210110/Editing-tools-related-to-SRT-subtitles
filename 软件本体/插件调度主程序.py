@@ -600,8 +600,15 @@ def main():
 
         elif event == "import_plugin":
             file_result = import_plugin_list(FILE_LIST)
-            if file_result.get("failed_files", []):
-                sg.popup_error(f"以下文件未导入:\n" + "\n".join(file_result.get("failed_files", [])))
+            failed_files = file_result.get("failed_files", [])
+            if failed_files:
+                # 校验失败的具体原因已收集，这里一次提示即可，不再由单包各弹一次
+                failed_reasons = file_result.get("failed_reasons", {})
+                lines = []
+                for path in failed_files:
+                    reason = failed_reasons.get(path)
+                    lines.append(path if not reason else f"{path}\n    原因：{reason}")
+                sg.popup_error("以下文件未导入:\n" + "\n".join(lines), title="导入插件失败")
             success_list = file_result.get("success_list", [])
 
             # 只有真正装上了插件才需要重建窗口刷新按钮区；

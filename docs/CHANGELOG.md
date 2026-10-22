@@ -41,7 +41,7 @@
 - 补全此前完全缺失的说明：导入插件（zip 需进列表、manifest 要求、版本比较与询问、仅成功才刷新且不影响已处理产物）、导出（移动到 `output/`、同名加 `_1`/`_2`）、链式处理与 `cache/output` 的关系、重启刷新会清空缓存、插件运行期间主界面阻塞。
 - 复核后追加的两处更正（2026-10-22 二次核对，均以源码为准）：①「srt加前缀」返回 `"popup": False`（`自动给srt加前缀.py:72`），主程序对假值只打印不弹窗，故"每次处理完都弹窗"的说法不成立，改为"关键词替换与 ASS 插件弹窗，「srt加前缀」结果看日志"；②规则编辑器实际是**一棵 `QTreeWidget` 带三个顶层根节点**（`subtitle_rule_editor.py:271-299`），不是三个独立树。
 - 打包一节沿用 #6 的说明并补注：`打包exe指令.txt` 里的 `--name "v1.1.0"` 未跟随当前版本，打包前需改成实际版本号（与 `AI_CONTEXT.md` §9.3 的记录一致）。
-- 依据实际发布产物补充两条说明（`发布zip/`）：①主程序包形如 `Re工具箱 - vX.Y.Z.zip`，另有「- 无插件」版，包内 exe 同名带版本号；插件单独发布（`srt关键词替换-v1.3.0.zip`，根目录含 `manifest.json`、`__init__.exe`、`subtitle_rules.json`）。②由此得出一条此前未记录的**规则丢失风险**：`load_zip.py:169/176` 安装时先 `rmtree` 旧插件目录再 `extractall`，而插件 zip 自带 `subtitle_rules.json`，所以升级/重装「srt关键词替换」会用 zip 里的规则覆盖用户改过的规则。README 已在「规则配置」中写明升级前先备份。
+- 依据实际发布产物补充两条说明（`发布zip/`）：①主程序包形如 `Re工具箱 - vX.Y.Z.zip`，另有「- 无插件」版，包内 exe 同名带版本号；插件单独发布（`srt关键词替换-v1.3.0.zip`，根目录含 `manifest.json`、`__init__.exe`、`subtitle_rules.json`）。②由此得出一条此前未记录的**规则丢失风险**：`load_zip.py:272/279` 安装时先 `rmtree` 旧插件目录再 `extractall`，而插件 zip 自带 `subtitle_rules.json`，所以升级/重装「srt关键词替换」会用 zip 里的规则覆盖用户改过的规则。README 已在「规则配置」中写明升级前先备份。
 - 已知限制集中列出：ASS 插件需自备 FFmpeg（路径固定、仓库与发布包均未附带、未做端到端验证）、ASS 插件未进入发布产物、前缀插件假设四行结构、同名文件互相覆盖、程序目录必须可写、打包后规则编辑器"新建"路径未验证。
 - 保留原 README 仍有效的内容与作者语气：`config.json` 里的联系方式（B 站 / Q 群 / GitHub）、DeepSeek AI 辅助记录、MIT 许可与版权人、"两天速成 UI"那句玩笑，以及"缓存暂存 → 继续处理 → 导出"的使用路径。
 - 验证方式（2026-10-22）：逐条对照 `AI_CONTEXT.md` §9.6 冒烟清单与源码复核，涉及界面按钮文案（`插件调度主程序.py:215-280`、`408-413`）、前缀格式（`自动给srt加前缀.py:53` 的中文冒号）、ASS 报错文案（`ass转码透明底视频.py:111`）、删词统计口径（`srt_keyword_editor.py:32-57`，降序前 10）、规则读取失败的回退链（`build_automaton.py` 的 `_get_json`）、移动与同名后缀（`插件调度主程序.py:378-399`）、去重与多选（`468`、`216`）。**未重新执行 GUI 手工冒烟**，新版描述以静态核对为准。
@@ -74,6 +74,7 @@
 
 ### 修复
 
+- 导入插件前增加**包完整性校验**（TODO #26，2026-10-22 真机测试 T11）：`PluginInstaller.validate_package()` 用 `zipfile.namelist()` 静态检查 manifest 里每个按钮的 `executable` 能否在包内解析到（原样 → 去扩展名 + `.py` → + `.exe`，与主程序 `_resolve_executable` 同源），失败即返回 `False`，原因写入 `rejection_reason`；`check_version_and_install()` 在版本比较之前调用它。修复前 `install()` 先 `rmtree` 旧目录再 `extractall`，导入一个按钮指向不存在文件的 zip 会**先删掉正常插件、再装上一个加载失败的空壳**，主程序扫描时才整插件跳过告警；现在旧目录一个字节都不动。同时拦下多按钮缺 `label`/`executable`、`buttons` 为空、exe 只在压缩包子目录里等非法包（`软件本体/load_zip.py`）。新增 `tests/test_installer_package_check.py`（12 项，含“坏包不得删除已安装插件”核心回归）；`pytest tests/` 112 passed / 1 skipped。配套调整导入失败提示：原来坏包会**连弹两次**（“插件包不完整”详情 + “以下文件未导入”汇总），现在单包不弹窗、原因经 `failed_reasons` 汇总到主程序的一次弹窗里，标题固定为“导入插件失败”，正文在文件路径下缩进显示「原因：…」；`validate_package(show_error=False)` 与 `check_version_and_install(show_error=False)` 保留默认弹窗行为，直接调用时不受影响（`软件本体/load_zip.py`、`软件本体/插件调度主程序.py:601-611`）。源码模式真机复验：坏包只弹一次、旧插件字节未变，好包仍可正常升级。
 - 插件安装前校验 manifest 的 `plugin_id`（未提供时回退 `name`）：仅允许字母、数字、下划线、连字符与中文，拒绝空值、`.`/`..`、路径分隔符、盘符与绝对路径，校验失败时中止安装并提示（`软件本体/load_zip.py`）。
 - 用 `os.path.realpath` + `os.path.commonpath` 校验安装目标必须位于 `plugins/` 下（Windows 经 `normcase` 忽略大小写），并在 `shutil.rmtree` 前再次校验；原有 zip 成员路径检查保持不变（`软件本体/load_zip.py`）。
 - 验证结论（2026-10-22，临时无头脚本 + 模拟弹窗）：正常 zip 可安装；`../x`、`/abs`、`..\x`、`C:\x`、空值与非法字符均被拒绝，已有插件目录及 `plugins/` 外哨兵目录未被删除；越界目标路径被拒绝。符号链接场景因 Windows 权限不足未执行（SKIP）。

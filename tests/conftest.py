@@ -109,6 +109,9 @@ class ZipFactory:
             return path
         if manifest is _DEFAULT_MANIFEST:
             manifest = {"name": "测试插件", "version": "1.0.0"}
+        # 默认附带占位可执行文件，让 manifest 声明的 executable 能在包内解析到（validate_package）
+        members = {"__init__.exe": b"MZ"}
+        members.update(files or {})
         with zipfile.ZipFile(path, "w") as zf:
             if manifest is not None:
                 if isinstance(manifest, str):
@@ -118,7 +121,7 @@ class ZipFactory:
                         "manifest.json",
                         json.dumps(manifest, ensure_ascii=False),
                     )
-            for member, content in (files or {}).items():
+            for member, content in members.items():
                 zf.writestr(member, content)
         return path
 

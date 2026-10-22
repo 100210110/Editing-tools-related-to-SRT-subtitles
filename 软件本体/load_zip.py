@@ -47,6 +47,8 @@ class PluginInstaller:
         self.version = None
         self.description = None
         self.plugin_path = None
+        # 包完整性校验失败的原因（单行文本），供批量导入汇总提示使用
+        self.rejection_reason = None
 
     # 校验 plugin_id，防止拼出 plugins/ 之外的安装路径
     @staticmethod
@@ -123,9 +125,110 @@ class PluginInstaller:
             return False
         return True
     
+    # 在 zip 成员列表里解析可执行文件名，语义与 插件调度主程序.py 的 _resolve_executable 一致
+    @staticmethod
+    def _resolve_member(names, executable):
+        """把 manifest 里的 executable 解析成压缩包内的成员名；解析不到返回 None。
+
+        允许省略扩展名（__init__ → __init__.py / __init__.exe），
+        与运行时 _resolve_executable 保持一致，避免“装的时候判有、用时判无”。
+        """
+        if not executable:
+            return None
+        normalized = executable.replace("\\", "/")
+        if normalized in names:
+            return normalized
+        base = os.path.splitext(normalized)[0]
+        for ext in (".py", ".exe"):
+            candidate = base + ext
+            if candidate in names:
+                return candidate
+        return None
+
+    # 把 manifest 归一化成 [(按钮名, executable)]，兼容旧式单按钮格式
+    @staticmethod
+    def _manifest_buttons(info):
+        """返回 manifest 声明的按钮列表；结构非法时抛 ValueError。
+
+        校验规则与主程序 _build_buttons 保持一致，否则会出现“装得上但加载不了”。
+        """
+        if "buttons" in info:
+            buttons = info.get("buttons")
+            if not isinstance(buttons, list) or not buttons:
+                raise ValueError("buttons 为空或不是列表")
+            result = []
+            for index, button in enumerate(buttons, 1):
+                if not isinstance(button, dict):
+                    raise ValueError(f"buttons 第 {index} 项不是对象")
+                label = button.get("label")
+                executable = button.get("executable")
+                if not label or not executable:
+                    raise ValueError(f"buttons 第 {index} 项缺少 label 或 executable")
+                result.append((label, executable))
+            return result
+
+        executable = info.get("executable")
+        if not executable:
+            raise ValueError("manifest 缺少 executable")
+        return [(info.get("name", "插件"), executable)]
+
+    def validate_package(self, show_error=True):
+        """安装前静态校验压缩包：每个按钮声明的可执行文件都必须真的在包内。
+
+        只读 zip 成员列表，不解压、不触碰已安装目录，因此校验失败时旧插件保持原样。
+        失败原因写入 self.rejection_reason，并可在批量导入时由调用方统一提示：
+        show_error=False 时不弹窗，避免与“以下文件未导入”的汇总提示重复弹两次。
+        返回 True=可安装；False=已拒绝（调用方不得继续安装）。
+        """
+        self.rejection_reason = None
+        try:
+            with zipfile.ZipFile(self.zip_path, "r") as zf:
+                names = {member.replace("\\", "/") for member in zf.namelist()}
+                if "manifest.json" not in names:
+                    raise ValueError("压缩包内缺少 manifest.json")
+                with zf.open("manifest.json") as f:
+                    info = json.load(f)
+                if not isinstance(info, dict):
+                    raise ValueError("manifest.json 顶层不是对象")
+                buttons = self._manifest_buttons(info)
+        except Exception as e:
+            print(f"校验压缩包 {self.zip_path} 失败: {e}", file=sys.stderr)
+            self.rejection_reason = f"插件包校验失败：{e}"
+            if show_error:
+                sg.popup_error(
+                    f"插件包校验失败，已中止安装（现有插件未改动）：\n{e}",
+                    title="导入插件失败",
+                )
+            return False
+
+        missing = [
+            (label, executable)
+            for label, executable in buttons
+            if self._resolve_member(names, executable) is None
+        ]
+        if missing:
+            detail = "\n".join(f"  · 按钮「{label}」→ {executable}" for label, executable in missing)
+            print(f"压缩包 {self.zip_path} 不完整，缺少可执行文件:\n{detail}", file=sys.stderr)
+            self.rejection_reason = "压缩包里找不到以下可执行文件：" + "；".join(
+                f"按钮「{label}」→ {executable}" for label, executable in missing
+            )
+            if show_error:
+                sg.popup_error(
+                    "插件包不完整，已中止安装（现有插件未改动）。\n"
+                    f"压缩包里找不到以下可执行文件：\n{detail}\n"
+                    "请重新获取完整的插件包。",
+                    title="导入插件失败",
+                )
+            return False
+        return True
+
     # 检查安装包内插件与现有插件的版本关系
     # 返回值：True=安装成功；False=安装失败；None=用户取消重装（不算失败）
-    def check_version_and_install(self):
+    # show_error=False 时校验失败不弹窗，由 import_plugin_list 统一汇总提示
+    def check_version_and_install(self, show_error=True):
+        # 先静态校验包完整性：坏包不得删除任何已安装内容
+        if not self.validate_package(show_error=show_error):
+            return False
         try:
             with open(os.path.join(self.plugin_path, 'manifest.json'), 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -197,23 +300,28 @@ def import_plugin_list(zip_path_list: list):
     success_list = []
     failed_list = []  # 安装失败的文件路径列表
     skipped_list = []  # 用户取消重装的文件路径列表，不计为失败
+    failed_reasons = {}  # 失败原因（仅包完整性校验失败时记录），供调用方汇总展示
     for zip_path in zip_path_list:
         plugin_zip = PluginInstaller(zip_path)
         if not plugin_zip.load_zip_json():
             print("加载插件信息失败，安装中止", file=sys.stderr)
             failed_list.append(zip_path)
             continue
-        install_result = plugin_zip.check_version_and_install()
+        # 单包失败的原因交给汇总提示，避免“校验失败”与“未导入”连弹两次
+        install_result = plugin_zip.check_version_and_install(show_error=False)
         if install_result is True:
             success_list.append(zip_path)
         elif install_result is False:
             failed_list.append(zip_path)
+            if plugin_zip.rejection_reason:
+                failed_reasons[zip_path] = plugin_zip.rejection_reason
         else:
             skipped_list.append(zip_path)
 
     return {
         "success_list": success_list,
         "failed_files": failed_list,
+        "failed_reasons": failed_reasons,
         "skipped_files": skipped_list
     }
     
