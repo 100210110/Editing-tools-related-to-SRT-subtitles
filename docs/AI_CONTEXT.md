@@ -999,6 +999,35 @@ pyinstaller --onefile --windowed -i "icon.ico" \
   - `docs: 初始化交接文档（AI_CONTEXT / TODO / CHANGELOG）`
 - 一次任务对应一条提交；不混合无关改动，不夹带格式化/重构。
 
+#### 任务前置检查（每次任务第 0 步，必须执行）
+
+每次任务开始、**修改任何文件之前**，AI 必须执行：
+
+```bash
+git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
+```
+
+- **返回 0（暂存区为空）**：正常继续任务。
+- **返回非 0（暂存区非空）**：**立即中断**，不读取、不修改、不暂存任何文件，
+  只输出以下提醒并等待人工处理：
+
+  ```
+  ⚠️ 暂存区非空，上次修改尚未提交，为避免混批已中断本次任务。
+  请先处理（任选其一）：
+  - 人工在 IDE 审查并 git commit
+  - git -C "Editing-tools-related-to-SRT-subtitles" reset 撤销暂存
+  处理完成后请重新发起本次任务。
+  ```
+
+  提醒中附 `git -C "Editing-tools-related-to-SRT-subtitles" status --short` 输出，
+  便于人工判断是哪一批改动。
+
+- **例外**：任务本身明确要求"承接上次未提交改动"时，人工须在提示词中显式声明
+  `跳过前置检查`，AI 才可继续；否则一律按上述规则中断。
+
+- **未跟踪文件（`??`）不阻塞**；工作区未暂存的已跟踪修改（` M`）同样不阻塞，
+  但 AI 应在汇报中提示"工作区存在未暂存修改，本次未触碰"。
+
 #### 每次任务的 Git 工作流（AI 执行，人工验收）
 
 1. **AI 只 `git add`，不 `git commit`、不 `git push`。**
