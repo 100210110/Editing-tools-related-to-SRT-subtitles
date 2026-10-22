@@ -183,7 +183,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 | 路径 | 说明 |
 |---|---|
-| `Editing-tools-related-to-SRT-subtitles/README.md` | 用户向说明；内容停留在较早版本，见 11 节 |
+| `Editing-tools-related-to-SRT-subtitles/README.md` | 用户向说明；2026-10-22 已重写并与实现对齐（规则在 `subtitle_rules.json`），见 11 节 |
 | `Editing-tools-related-to-SRT-subtitles/LICENSE` | MIT License，Copyright (c) 2026 realcan |
 | `Editing-tools-related-to-SRT-subtitles/logo/` | 图标资源（`icon.ico`、`画板1.png`、`绪山真寻的本体.ico`） |
 | `Editing-tools-related-to-SRT-subtitles/docs/` | 交接文档目录（`AI_CONTEXT.md`、`TODO.md`、`CHANGELOG.md`），已随代码入库并由 git 跟踪 |
@@ -1101,7 +1101,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
 | 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪**（已修复，见 CHANGELOG [2026-10-22]） | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
 | 中 | **无正式依赖清单**：仓库没有 `requirements.txt`/`pyproject.toml`；`.venv/old_requirements.txt` 缺少 PyQt5，且包含未使用包（已修复，见 CHANGELOG [2026-10-22]） | `.venv/old_requirements.txt`；`subtitle_rule_editor.py:5-11`；`pysub-parser`/`Unidecode` 未被 import | 新环境难以复现，规则编辑器容易因缺 PyQt5 失败。建议整理最小依赖清单并区分 runtime/dev/build |
-| 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者 | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
+| 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者（已修复，见 CHANGELOG [2026-10-22]） | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`（行号已随 2026-10-22 重写失效）；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
 | 中 | **ASS 插件缺少 FFmpeg**：代码要求 `ffmpeg/bin/ffmpeg.exe`，仓库该目录为空，发布包中也未发现 FFmpeg | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`；目录清单 | 源码环境下 ASS 功能不可用。建议文档说明外部依赖，或在发布包中附带并校验版本 |
 | 中 | **ASS 插件未出现在现有发布产物** | `v1.x/plugins` 与 `发布zip/` 清单均无该插件 | 功能是否对用户发布、如何分发**未确认**；接手时需确认发布策略 |
 | 中 | **主界面在插件运行期间阻塞**：`proc.communicate()` 在 UI 事件循环内同步等待，无超时、无取消、无进度 | `软件本体/插件调度主程序.py:330-337`、`485-587` | ASS 渲染或大批量 SRT 时窗口“无响应”。建议改为线程/进程异步 + 进度回传，或至少加忙碌提示 |

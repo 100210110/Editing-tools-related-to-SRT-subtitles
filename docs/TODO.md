@@ -12,7 +12,7 @@
 - 当前最大编号：25。
 
 > 来源：`AI_CONTEXT.md` §11 共 24 行（高 2 / 中 10 / 低 12），编号 1–24 与表格行一一对应；优先级按该节级别映射。
-> 归档：#1、#2、#3、#5、#6、#25 已于 2026-10-22 完成并移入 `CHANGELOG.md`；同日「可选增强 / 测试补强」8 项（5 项自动化回归 + 3 项手工冒烟）亦已归档，该分类不占编号。编号均不复用。
+> 归档：#1、#2、#3、#5、#6、#7、#25 已于 2026-10-22 完成并移入 `CHANGELOG.md`；同日「可选增强 / 测试补强」8 项（5 项自动化回归 + 3 项手工冒烟）亦已归档，该分类不占编号。编号均不复用。
 
 ---
 
@@ -30,22 +30,6 @@
 **关联文件**：
 - `软件本体/plugins/srt关键词替换/build_automaton.py`
 - `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`
-
----
-
-### 7. 更新 README 与实现对齐
-
-**背景**：README 称 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，`config.json` 只存版本/作者（`AI_CONTEXT.md` §11「README 与当前实现不一致」）。建议按 §11.1 第 4 步处理。
-
-**待办**：
-- [ ] 改写规则说明：以 `subtitle_rules.json` 与规则编辑器为准，注明 `config.json` 仅存版本/作者
-- [ ] 补全规则编辑器、导入/导出插件、ASS 插件与导出目录的说明
-- [ ] 按 §9.6 冒烟清单逐项核对 README 描述与实际行为
-
-**关联文件**：
-- `Editing-tools-related-to-SRT-subtitles/README.md`
-- `软件本体/config.json`
-- `软件本体/plugins/srt关键词替换/build_automaton.py`
 
 ---
 
