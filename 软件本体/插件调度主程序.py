@@ -1,6 +1,5 @@
 import PySimpleGUI as sg
 from tkinterdnd2 import DND_FILES, TkinterDnD
-import re
 import sys
 import os
 import json
@@ -66,17 +65,84 @@ FILE_LIST = []  # 全局文件列表变量
 
 # 解析拖放数据，支持多种格式
 def parse_dropped_files(data):
+    """解析 TkDND 拖放数据，优先按花括号分组。
+
+    TkDND 对含空格/换行的路径会用花括号包裹（`{C:\\a b\\1.srt}`），多个路径之间用空格分隔；
+    没有花括号时只能按空白切分。因此这里先做花括号分组，剩下的片段再按空白切分，
+    避免把 `C:\\my subtitle.srt` 这种路径拆坏。
+
+    完全无花括号、路径本身又含空格时，用"合并后磁盘上确实存在"作为保守判据
+    （见 `_merge_existing_tokens`）：宁可少拆，也不凭空猜。
+    """
+    if not data:
+        return []
     data = data.strip()
     if not data:
         return []
-    if '{' in data and '}' in data:
-        return re.findall(r'{([^{}]*)}', data)
-    if '\n' in data:
-        return [p for p in data.split('\n') if p.strip()]
-    if ' ' in data:
-        parts = data.split(' ')
-        return [p for p in parts if p.strip()]
-    return [data]
+
+    paths = []
+    buffer = []
+    used_brace = False
+    index = 0
+    length = len(data)
+    while index < length:
+        char = data[index]
+        if char == '{':
+            end = data.find('}', index + 1)
+            if end == -1:
+                # 括号没闭合，按普通字符处理，交给后面的空白切分
+                buffer.append(char)
+                index += 1
+                continue
+            used_brace = True
+            fragment = data[index + 1:end]
+            if fragment.strip():
+                paths.append(fragment)
+            index = end + 1
+            continue
+        if char.isspace():
+            if buffer:
+                paths.append(''.join(buffer))
+                buffer = []
+            index += 1
+            continue
+        buffer.append(char)
+        index += 1
+    if buffer:
+        paths.append(''.join(buffer))
+
+    paths = [p for p in paths if p.strip()]
+    # 只有完全没出现花括号时才需要猜，且只在存在多段时才有歧义
+    if not used_brace and len(paths) > 1:
+        paths = _merge_existing_tokens(paths)
+    return paths
+
+
+def _merge_existing_tokens(tokens):
+    """无花括号时的保守还原：相邻片段拼起来若在磁盘上存在，则视为同一个路径。
+
+    拖放数据在无花括号时只能按空白切分，本来无法区分"两个文件"和"一个带空格的文件"。
+    用磁盘存在性做判据，只有拼起来确实是个真实路径时才合并，否则保持逐段拆分。
+    """
+    merged = []
+    index = 0
+    total = len(tokens)
+    while index < total:
+        matched = None
+        # 从最长的组合开始试，优先还原完整路径
+        for end in range(total, index, -1):
+            candidate = ' '.join(tokens[index:end])
+            if os.path.exists(candidate):
+                matched = (candidate, end)
+                break
+        if matched is None:
+            merged.append(tokens[index])
+            index += 1
+        else:
+            merged.append(matched[0])
+            index = matched[1]
+    return merged
+
 
 # 更新列表框显示
 def update_listbox(window, file_list=FILE_LIST):

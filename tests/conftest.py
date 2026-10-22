@@ -1,6 +1,7 @@
 """共享测试设施：加载中文路径源码、隔离临时目录、构造插件 zip、重定向规则缓存。"""
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import pickle
@@ -15,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SOFTWARE_DIR = REPO_ROOT / "软件本体"
 BUILD_AUTOMATON_PATH = SOFTWARE_DIR / "plugins" / "srt关键词替换" / "build_automaton.py"
 LOAD_ZIP_PATH = SOFTWARE_DIR / "load_zip.py"
+MAIN_PROGRAM_PATH = SOFTWARE_DIR / "插件调度主程序.py"
 
 _DEFAULT_MANIFEST = object()
 
@@ -37,6 +39,27 @@ def load_zip_module():
 @pytest.fixture(scope="session")
 def build_automaton_module():
     return _load_module("retoolbox_build_automaton_under_test", BUILD_AUTOMATON_PATH)
+
+
+@pytest.fixture(scope="session")
+def main_program_module():
+    """加载主程序模块（`插件调度主程序.py`）。
+
+    模块在 import 期会把 sys.stdin/stdout/stderr 换成 UTF-8 包装器，并 `from load_zip import ...`，
+    所以先塞入带 buffer 的占位流、临时把 `软件本体/` 加进 sys.path，加载完再全部还原。
+    """
+    saved_streams = (sys.stdin, sys.stdout, sys.stderr)
+    saved_path = list(sys.path)
+    sys.stdin = io.TextIOWrapper(io.BytesIO())
+    sys.stdout = io.TextIOWrapper(io.BytesIO())
+    sys.stderr = io.TextIOWrapper(io.BytesIO())
+    sys.path.insert(0, str(SOFTWARE_DIR))
+    try:
+        module = _load_module("retoolbox_main_program_under_test", MAIN_PROGRAM_PATH)
+    finally:
+        sys.stdin, sys.stdout, sys.stderr = saved_streams
+        sys.path[:] = saved_path
+    return module
 
 
 class PopupStub:

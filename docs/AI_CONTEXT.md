@@ -1157,7 +1157,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数（已修复，见 CHANGELOG [2026-10-23]） | `load_zip.py:365-373` | 容易误用。建议删除或改为正式测试 |
 | 低 | **测试插件用 `raise KeyboardInterrupt` 模拟错误** | `软件本体/plugins/测试插件/__init__.py:68-70` | `KeyboardInterrupt` 不是 `Exception`，会走 Python 默认 traceback；仅调试用途 |
 | 低 | **仓库卫生**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 被跟踪；`plugin_log/` 未跟踪且无 `.gitignore` | `git ls-files`、`git status` | 运行产物/缓存入库，日志可能误提交。建议添加 `.gitignore`，清理已跟踪的缓存 |
-| 低 | **拖放路径解析在无花括号时按空格拆分** | `软件本体/插件调度主程序.py:68-79` | 某些来源的含空格路径会被拆坏；TkDND 通常会给含空格路径加花括号，风险有限 |
+| 低 | **拖放路径解析在无花括号时按空格拆分**（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/插件调度主程序.py:68-79` | 某些来源的含空格路径会被拆坏；TkDND 通常会给含空格路径加花括号，风险有限 |
 | 低 | **日志语句缺少 f-string**：`logger.info("params: {str(params)}")`（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/srt_keyword_editor.py:71` | 日志记录了字面量而不是参数，影响排查 |
 | 低 | **FFmpeg 以 `CREATE_NEW_CONSOLE` 启动并带 `-report`** | `ass转码透明底视频.py:141`、`156-164` | 可能闪控制台，且在 `cache/temp` 留下 ffmpeg 日志；建议 `CREATE_NO_WINDOW` 并清理日志 |
 

@@ -77,6 +77,13 @@
 
 ### 修复
 
+- 重写拖放路径解析 `parse_dropped_files()`（TODO #22）：原实现只要数据里出现花括号就 `re.findall(r'{([^{}]*)}', data)` 并直接返回，混合格式（`{带空格路径} 普通路径`）会丢掉未包裹的路径；完全无花括号时按空格 `split(' ')`，`C:\my subtitle.srt` 必被拆坏。现在改为单遍扫描：`{...}` 内原样取整段（保留空格、中文、`\n`），`{` 未闭合时退化为普通字符，其余片段按任意空白切分（`\n`、多个空格一并处理），因此花括号分组与换行分隔两种主流格式都覆盖（`软件本体/插件调度主程序.py`）。
+- 无花括号且切出多段时，用**磁盘存在性**做保守还原（新增 `_merge_existing_tokens()`）：从最长组合开始试，只有拼起来确实是一个真实存在的路径才合并，否则保持逐段拆分。这样 TkDND 万一没加花括号，带空格的真实路径也能还原，而不会凭猜测把两个文件错误合并。
+- 顺带删除因此不再使用的 `import re`。
+- 新增 `tests/test_drop_paths.py`（11 项）：花括号单路径/多路径、中文带空格、反斜杠路径、无花括号普通路径、磁盘上真实存在的单个与两个带空格文件、混合格式、换行分隔、空输入与纯空白、未闭合括号的退化行为；`conftest.py` 新增会话级 `main_program_module` fixture（占位标准流 + 临时加入 `软件本体/` 到 `sys.path`，加载后全部还原）。
+- 归档自 `TODO.md` #22，编号不复用。
+
+
 - 修正关键词替换插件的参数日志（TODO #23）：`logger.info("params: {str(params)}")` 少了 f 前缀，落盘的是字面量 `params: {str(params)}`，排查时看不到实际传入的 `output_path` / `pending_file_lists`。改为惰性格式化的 `logger.info("params: %s", params)`，只有真正输出日志时才做 `str()`（`软件本体/plugins/srt关键词替换/srt_keyword_editor.py`）。
 - 扫描同插件其余日志调用（`srt_keyword_editor.py`、`subtitle_rule_editor.py`、`__init__.py`、`common.py`）：其余均为 f-string 或 `str(...)` 参数，无同类问题。
 - 新增 `tests/test_plugin_logging.py`（2 项）：用 AST 扫描 `软件本体/` 下全部 `.py`，禁止 `logger.<level>("…{…}…")` 这种“纯字面量里带 `{}` 占位符”的写法（f-string 会被解析成 `JoinedStr`，不受影响，`%s` 风格也不受影响）；另单项锁定 `params:` 那条必须把参数作为第二个实参传入。
