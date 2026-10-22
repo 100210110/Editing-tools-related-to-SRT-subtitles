@@ -51,7 +51,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
 | 测试插件（弹窗/报错） | `软件本体/plugins/测试插件/__init__.py:14-78` | 调试用途，非生产功能 |
-| 自动化测试 / CI | 未发现测试目录、pytest 配置、`.github` 工作流 | 工作区文件系统勘察 |
+| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 4 个测试模块，60 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存回归，**无 CI**；见 `CHANGELOG.md` |
 
 ### 1.4 业务背景与使用方式
 
@@ -194,7 +194,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 - git 只跟踪 31 个文件（`git ls-files`）。
 - `cache/temp/ffmpeg-*.log` 四个日志被 git 跟踪；`subtitle_rules.pkl` 也被跟踪（`git ls-files`）。
 - `plugins/srt关键词替换/plugin_log/` 当前是 untracked（`git status` 显示 `?? .../plugin_log/`），且仓库没有 `.gitignore`。
-- 没有 `tests/`、`pytest.ini`、`tox.ini`、GitHub Actions 等测试/CI 基础设施。
+- 测试基础设施：勘察时（2026-10-22 前）没有 `tests/`、`pytest.ini`、`tox.ini`、GitHub Actions；现已建立 `tests/`（pytest）与 `requirements-dev.txt`，仍无 CI（见 9.5）。
 
 ---
 
@@ -913,12 +913,21 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 ### 9.5 测试现状
 
-- **没有自动化测试**：未发现 `tests/`、pytest/unittest 用例、CI 配置。
+> 2026-10-22 更新：已建立 pytest 框架并固化 5 组回归。以下前两条为勘察期结论，保留原记述；当前状态见本节末尾「当前状态」。
+
+- **（勘察期结论，已不成立）没有自动化测试**：未发现 `tests/`、pytest/unittest 用例、CI 配置。
 - 存在若干临时/手工测试入口：
   - `软件本体/plugins/srt关键词替换/build_automaton.py:302-313` 的 `test()`：用固定文本验证删除/计数；仅 `__main__` 时执行。
   - `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:193-198` 的 `test()`：读取 `test.ass` 并生成 `output.mov`；但 `__main__` 实际调用的是 `main()`（`268-269`），需要手工调用 `test()`。
   - `软件本体/plugins/测试插件/` 提供“测试弹窗”“测试报错”两个按钮；后者会 `raise KeyboardInterrupt`（`测试插件/__init__.py:68-70`），用于验证异常链路。
 - 本次勘察未运行上述测试，功能正确性**未验证**。
+
+**当前状态（2026-10-22）**：
+
+- 已建立 `tests/`（pytest，60 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **59 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
+- `tests/conftest.py` 通过 `importlib` 按路径加载被测模块以兼容中文目录；`load_zip` 的 `get_path` 与弹窗在 fixture 内 monkeypatch，规则 JSON/pkl 全部限制在 `tmp_path`，因此测试不读写仓库内运行产物。
+- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟仍未执行**，留在 `TODO.md`「测试补强」。
+- 仍无 CI 配置；上述手工入口照旧存在。
 
 ### 9.6 建议的冒烟测试清单
 

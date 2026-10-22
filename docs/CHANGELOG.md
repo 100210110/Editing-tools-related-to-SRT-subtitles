@@ -22,6 +22,16 @@
 - 验证结论（2026-10-22，临时无头脚本，38 项全通过）：覆盖仅压缩、仅分隔、压缩+分隔、压缩但不分隔、未达间隔门槛、原始次数门槛、间隔关闭仍压缩、外层禁用、多规则优先级、长词优先、空格/标点不识别、delete/replace 交互与敏感词计数、真实默认规则回归，以及缓存命中、JSON 更新后不删 pkl 自动失效、旧缓存重建、`force_rebuild`。长词优先按“词出现次数”口径验证：`哈哈哈哈` 中 `哈哈` 恰好 2 次，不压缩；`哈哈哈哈哈哈` → `哈哈哈哈`（规格原例 `哈哈哈哈 → 哈哈` 按此口径属于笔误，已按确认口径验证）。
 - 归档自 `TODO.md` #3，编号不复用。
 
+### 测试
+
+- 建立 pytest 测试框架（`tests/`，共 60 项用例）：`conftest.py` 提供按文件路径加载被测模块（兼容中文目录名）、`load_zip` 的 `get_path` 与三类弹窗 monkeypatch 隔离、插件 zip 工厂、规则 JSON/pkl 临时工作区，以及 Windows 目录联接工厂（无权限时自动 SKIP）。新增 `requirements-dev.txt` 固定 `pytest==9.1.1`，运行基准为 `pytest tests/`（在项目 `.venv`，Python 3.11 下执行）。
+- 固化插件安装器回归测试（`tests/test_installer.py`，29 项）：合法 `plugin_id` 4 类（英文、数字下划线连字符、中文、纯数字）与非法 11 类（`../x`、`/abs`、`..\x`、`C:\x`、空值、纯空格、正/反斜杠、`.`、`..`、含点号）分别验证安装与拒绝；另覆盖缺 `plugin_id` 回退 `name`、合法 id 但目标为目录联接指向 `plugins/` 外、非 zip、缺 `manifest.json`、缺 `name`/`version`、非法 JSON、首次安装返回 `True`、含越界成员 zip 返回 `False`、同版本与低版本取消返回 `None`、同版本确认重装覆盖、`import_plugin_list()` 三列表分组，以及越界拒绝后既有插件目录与 `plugins/` 外哨兵文件均未被删除。
+- 固化安装失败路径测试（`tests/test_installer_failures.py`，5 项）：只读文件与占用文件触发 `rmtree` 失败、manifest 读取后 zip 被损坏、zip 内文件与目录同名导致 `extractall` 真实失败，均确认 `install()` 返回 `False`、旧目录保留且弹出错误；目录不可写场景在当前环境无法用普通权限模拟，按约定标 SKIP 并给出原因。
+- 固化 repeat 回归测试（`tests/test_repeat.py`，16 项）：压缩与分隔独立触发、原始连续次数门槛（不按压缩后次数）、外层 `enabled=false` 整条跳过、多规则 `max_times` 小者优先与同 `max_times` 长词优先、重复按词出现次数计口径、带空格/标点不识别、delete/replace 先于 repeat 且敏感词计数不变、真实 `subtitle_rules.json` 与 `default_subtitle_rules.json` 回归、缓存命中与失效重建两条路径下 repeat 状态一致。
+- 固化 pkl 缓存校验回归测试（`tests/test_cache.py`，10 项）：冷启动重建并写入 `json_content_hash` 与 `schema_version`、同内容第二次加载命中不重建、JSON 内容变化失效、仅缩进与键顺序变化仍命中、schema 版本不匹配失效、哈希不匹配失效、损坏 pkl 自动重建不崩溃、旧载荷缺字段重建、`force_rebuild=True` 跳过校验并写回新哈希、命中与重建路径 repeat 规则一致。
+- 验证结论（2026-10-22，`.venv` 下 `pytest tests/ -q`）：收集 60 项，**59 passed / 1 skipped**，唯一 SKIP 为「当前环境无法用普通权限模拟目录不可写」；目录联接越界用例在本机真实执行并通过（未走 SKIP）；`test_repeat.py` 对真实规则文件只读，未改写仓库内 JSON 或 pkl。任务全程未改动被测源码，测试运行后 `git status` 仅显示新增的 `tests/` 与 `requirements-dev.txt`。
+- 归档自 `TODO.md`「可选增强 / 测试补强」中 5 项可自动化条目；`插件导入 GUI 手工冒烟`、`repeat 规则 GUI/真实缓存手工冒烟`、`主程序真实缓存手工冒烟` 3 项需真实界面操作，仍保留在该节待人工执行。
+
 ### 修复
 
 - 插件安装前校验 manifest 的 `plugin_id`（未提供时回退 `name`）：仅允许字母、数字、下划线、连字符与中文，拒绝空值、`.`/`..`、路径分隔符、盘符与绝对路径，校验失败时中止安装并提示（`软件本体/load_zip.py`）。
@@ -42,3 +52,4 @@
 ### 说明
 
 - TODO 初始化后已完成 #1、#2、#3、#5（插件安装路径穿越、安装失败仍报成功、repeat 规则、pkl 缓存校验与入库）；其余 20 项待办不变。
+- 2026-10-22 补充 pytest 测试框架与 5 项回归固化（见上文「测试」节），`TODO.md` 中对应条目已打勾留痕；GUI/主程序手工冒烟 3 项仍待人工执行。
