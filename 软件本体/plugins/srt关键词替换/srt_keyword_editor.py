@@ -68,7 +68,7 @@ def main(params):
         print("没有收到数据", file=sys.stderr)
         sys.exit(1)
     
-    logger.info("params: {str(params)}")
+    logger.info("params: %s", params)
             
     cache_dir = params.get("output_path")
     file_lists = params.get("pending_file_lists", [])

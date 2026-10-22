@@ -77,6 +77,11 @@
 
 ### 修复
 
+- 修正关键词替换插件的参数日志（TODO #23）：`logger.info("params: {str(params)}")` 少了 f 前缀，落盘的是字面量 `params: {str(params)}`，排查时看不到实际传入的 `output_path` / `pending_file_lists`。改为惰性格式化的 `logger.info("params: %s", params)`，只有真正输出日志时才做 `str()`（`软件本体/plugins/srt关键词替换/srt_keyword_editor.py`）。
+- 扫描同插件其余日志调用（`srt_keyword_editor.py`、`subtitle_rule_editor.py`、`__init__.py`、`common.py`）：其余均为 f-string 或 `str(...)` 参数，无同类问题。
+- 新增 `tests/test_plugin_logging.py`（2 项）：用 AST 扫描 `软件本体/` 下全部 `.py`，禁止 `logger.<level>("…{…}…")` 这种“纯字面量里带 `{}` 占位符”的写法（f-string 会被解析成 `JoinedStr`，不受影响，`%s` 风格也不受影响）；另单项锁定 `params:` 那条必须把参数作为第二个实参传入。
+- 归档自 `TODO.md` #23，编号不复用。
+
 - 导入/重装插件时**自动备份将被覆盖的文件**（TODO #27，2026-10-22 真机测试 T15）：插件 zip 自带 `subtitle_rules.json`，而 `install()` 直接 `rmtree` + `extractall`，升级或同版本重装都会静默覆盖用户调过的规则，此前只能靠 README 提醒"升级前自己备份"。现在 `install()` 的顺序固定为「成员路径校验 → 备份 → `rmtree` → `extractall`」，任一前置步骤失败都不会删除旧目录（`软件本体/load_zip.py`）。
   - `_collect_overwrites()` 用 `ZipInfo.file_size` + CRC32 与磁盘文件比对，**只备份内容确有差异**的同名文件；大小相同再算 CRC32，内容一致直接跳过，避免把没改过的 `__init__.exe` 之类也堆一份。
   - `_backup_overwrites()` 复制到 `cache/plugin_backup/<plugin_id>/<时间戳>/` 并保留相对路径；目录名同秒冲突时追加 `_1`、`_2`。备份目录刻意放在插件目录之外：既不被 `rmtree` 连带删除，也不会被主程序当成插件扫描。备份失败即抛异常，`install()` 返回 `False`，弹窗里附上已生成的备份路径。
