@@ -896,7 +896,7 @@ cd "E:/projects/ReToolbox"
 
 先装打包依赖：`pip install -r requirements-dev.txt`（含 `pyinstaller==6.20.0`）。
 
-实际使用的命令（2026-10-22 打包 1.4.0b 时验证通过，见 CHANGELOG「打包」节；工作区根 `build_beta.py` 的 `main` 目标即此命令）：
+实际使用的命令（2026-10-22 打包 1.4.0b、2026-10-23 打包 1.4.1b 均验证通过，见 CHANGELOG「打包」节；工作区根 `build_beta.py` / `build_release_141.py` 的 `main` 目标即此命令）：
 
 ```bash
 # cwd = 软件本体/
