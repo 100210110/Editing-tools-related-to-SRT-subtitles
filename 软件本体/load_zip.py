@@ -1,10 +1,15 @@
 import zipfile
 import json
 import os
+import re
 import sys
 import shutil
 import PySimpleGUI as sg
 from packaging.version import parse as parse_version
+
+
+# 插件目录名白名单：字母、数字、下划线、连字符、中文
+PLUGIN_ID_PATTERN = re.compile(r'^[\w\u4e00-\u9fff-]+$')
 
 
 def get_path(relative_path=None, use_program_dir=True):
@@ -43,6 +48,39 @@ class PluginInstaller:
         self.description = None
         self.plugin_path = None
 
+    # 校验 plugin_id，防止拼出 plugins/ 之外的安装路径
+    @staticmethod
+    def _validate_plugin_id(plugin_id):
+        if not isinstance(plugin_id, str):
+            raise ValueError("plugin_id 必须是字符串")
+        if not plugin_id or plugin_id != plugin_id.strip():
+            raise ValueError("plugin_id 不能为空，首尾不能有空格")
+        if plugin_id in (".", ".."):
+            raise ValueError("plugin_id 不能是 . 或 ..")
+        if os.path.isabs(plugin_id) or os.path.splitdrive(plugin_id)[0]:
+            raise ValueError("plugin_id 不能是绝对路径或盘符路径")
+        if "/" in plugin_id or "\\" in plugin_id:
+            raise ValueError("plugin_id 不能包含路径分隔符")
+        if not PLUGIN_ID_PATTERN.fullmatch(plugin_id):
+            raise ValueError("plugin_id 仅允许字母、数字、下划线、连字符和中文")
+        return plugin_id
+
+    # 校验安装路径必须位于 plugins/ 下，并返回 realpath 后的路径
+    @staticmethod
+    def _validate_install_path(plugin_path):
+        if not plugin_path:
+            raise ValueError("插件安装路径为空")
+        plugins_root = os.path.realpath(get_path("plugins"))
+        target_path = os.path.realpath(plugin_path)
+        try:
+            common_path = os.path.commonpath([plugins_root, target_path])
+        except ValueError:
+            raise ValueError(f"插件安装路径不在 plugins 目录下: {plugin_path}") from None
+        if (os.path.normcase(common_path) != os.path.normcase(plugins_root)
+                or os.path.normcase(target_path) == os.path.normcase(plugins_root)):
+            raise ValueError(f"插件安装路径不在 plugins 目录下: {plugin_path}")
+        return target_path
+
     # 测试函数
     def test(self):
         
@@ -72,11 +110,16 @@ class PluginInstaller:
                     self.version = data["version"]
                     self.description = data.get("description", "这个插件没写描述")
                     plugin_id = data.get("plugin_id", self.name)
-                    if not plugin_id or plugin_id.strip() == "":
-                        raise ValueError("manifest.json 必须包含非空的 plugin_id 或 name 字段")
-                    self.plugin_path = get_path(f'plugins\\{plugin_id}')
+                    try:
+                        plugin_id = self._validate_plugin_id(plugin_id)
+                        plugin_path = os.path.join(get_path("plugins"), plugin_id)
+                        self.plugin_path = self._validate_install_path(plugin_path)
+                    except ValueError as e:
+                        print(f"拒绝安装插件 {self.zip_path}: {e}", file=sys.stderr)
+                        sg.popup_error(f"插件安装被拒绝:\n{e}")
+                        return False
             except Exception as e:
-                print(f"加载压缩包 {self.plugin_path} 出错: {e}", file=sys.stderr)
+                print(f"加载压缩包 {self.zip_path} 出错: {e}", file=sys.stderr)
                 return False
         return True
     
@@ -120,6 +163,7 @@ class PluginInstaller:
     # 安装插件，解压到 plugins 目录
     def install(self):
         try:
+            self.plugin_path = self._validate_install_path(self.plugin_path)
             shutil.rmtree(self.plugin_path, ignore_errors=True)
             with zipfile.ZipFile(self.zip_path, 'r', metadata_encoding='utf-8') as zf:
                 for member in zf.namelist():
