@@ -449,7 +449,7 @@ def init_program():
     layout_builder = BuildLayout(buttons)
     layout = layout_builder.build_layout()
     # layout = build_layout(buttons)
-    window = sg.Window("Re工具箱", layout, finalize=True, icon=APP_ICON_PATH, resizable=True, size=(650, 700))
+    window = sg.Window("Re工具箱", layout, finalize=True, icon=APP_ICON_PATH, resizable=True)
 
     # 注册拖拽事件
     listbox_widget = window["-FILE_LIST-"].Widget
