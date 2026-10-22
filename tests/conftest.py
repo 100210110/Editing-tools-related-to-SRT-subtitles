@@ -1,8 +1,10 @@
 """共享测试设施：加载中文路径源码、隔离临时目录、构造插件 zip、重定向规则缓存。"""
 import hashlib
+import importlib
 import importlib.util
 import io
 import json
+import logging
 import os
 import pickle
 import subprocess
@@ -111,6 +113,28 @@ def keyword_processor_module():
         sys.path[:] = saved_path
     return module
 
+
+@pytest.fixture(scope="session")
+def keyword_plugin_module():
+    """加载 `srt关键词替换/__init__.py` 的模块级代码（不触发 `__main__` 分发）。
+
+    入口在 import 期会重配标准流并初始化文件日志，这里用占位流 + 内存 logger，
+    避免测试往仓库里写 `plugin_log/`。
+    """
+    saved_streams = (sys.stdin, sys.stdout, sys.stderr)
+    saved_path = list(sys.path)
+    sys.stdin = io.TextIOWrapper(io.BytesIO())
+    sys.stdout = io.TextIOWrapper(io.BytesIO())
+    sys.stderr = io.TextIOWrapper(io.BytesIO())
+    sys.path.insert(0, str(KEYWORD_PLUGIN_DIR))
+    try:
+        common_module = importlib.import_module("common")
+        common_module.setup_logger = lambda log_dir: logging.getLogger("retoolbox_test_logger")
+        module = _load_module("retoolbox_keyword_plugin_entry", KEYWORD_PLUGIN_DIR / "__init__.py")
+    finally:
+        sys.stdin, sys.stdout, sys.stderr = saved_streams
+        sys.path[:] = saved_path
+    return module
 
 @pytest.fixture(scope="session")
 def prefix_plugin_module():

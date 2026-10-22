@@ -990,14 +990,20 @@ class SubtitleEditor(QMainWindow):
     
 
 def run():
+    """启动规则编辑器，返回 Qt 事件循环的退出码（不再自己 `sys.exit`）。
+
+    子函数直接 `sys.exit` 抛出的是 `SystemExit`，它继承 `BaseException`，
+    插件入口的 `except Exception` 接不住，主程序会收不到 JSON。
+    统一由 `__init__.py` 的分发层按协议输出结果后再退出。
+    """
     logger.info("规则配置已启动")
-    app = QApplication(sys.argv)
+    app = QApplication.instance() or QApplication(sys.argv)
     win = SubtitleEditor()
     win.show()
-    sys.exit(app.exec_())
+    return app.exec_()
 
 
 
 # ---------- 启动 ----------
 if __name__ == "__main__":
-    run()
+    raise SystemExit(run())

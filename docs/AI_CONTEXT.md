@@ -408,7 +408,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 3 | 构建 PyQt5 主窗口：工具栏（新建/打开/保存/另存为）+ 三棵树（Delete/Repeat/Replace） | `245-299` |
 | 4 | 右键菜单按节点类型提供编辑、删除、切换启用、添加子分组/子项 | `757-844` |
 | 5 | 保存时 `json.dump(..., indent=4)`，再用正则压缩含 `source` 的叶节点 | `192-212` |
-| 6 | 退出时 `sys.exit(app.exec_())` | `852-857` |
+| 6 | 退出时 `run()` 返回 `app.exec_()` 的退出码（不再 `sys.exit`），由 `__init__.py` 分发层统一输出 JSON 后结束 | `subtitle_rule_editor.py` `run()`；`__init__.py` `handle_event()` |
 
 规则编辑器的语义补充：
 
@@ -1153,7 +1153,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/build_automaton.py` `_resolve_overlaps()` | 某些重叠词删除/替换结果不符合“长词优先”直觉。已改为按「长度降序、起点升序」的区间调度，长词优先对任意起点组合成立 |
 | 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复（已修复，见 CHANGELOG [2026-10-23]） | `build_automaton.py` `_process_node()`；`subtitle_rule_editor.py` `confirm_duplicate_sources()` | 规则冲突不易发现。现在构建时记录 `source_conflicts` 并告警、编辑器保存前列冲突并询问、添加源词时提前提示；覆盖语义本身不变 |
 | 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)`（已修复，见 CHANGELOG [2026-10-23]） | `subtitle_rule_editor.py:214-218`（现状 `default_working_path()`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。现统一改用 `get_path(use_program_dir=True)`，与同文件加载路径一致；打包环境实测仍待人工 |
-| 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`** | `subtitle_rule_editor.py:852-857`；`srt关键词替换/__init__.py:66-90` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；建议统一返回/输出协议 |
+| 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`**（已修复，见 CHANGELOG [2026-10-23]） | `subtitle_rule_editor.py` `run()`；`srt关键词替换/__init__.py` `handle_event()` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；现由 `run()` 返回退出码、入口单独 `except SystemExit` 后统一输出 JSON |
 | 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数（已修复，见 CHANGELOG [2026-10-23]） | `load_zip.py:365-373` | 容易误用。建议删除或改为正式测试 |
 | 低 | **测试插件用 `raise KeyboardInterrupt` 模拟错误** | `软件本体/plugins/测试插件/__init__.py:68-70` | `KeyboardInterrupt` 不是 `Exception`，会走 Python 默认 traceback；仅调试用途 |
 | 低 | **仓库卫生**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 被跟踪；`plugin_log/` 未跟踪且无 `.gitignore`（已修复，见 CHANGELOG [2026-10-23]） | `git ls-files`、`.gitignore` | 运行产物/缓存入库，日志可能误提交。现已加 `.gitignore` 并把 pkl/日志移出索引，现状见 §3.4 |

@@ -101,6 +101,11 @@
 
 ### 修复
 
+- 统一规则编辑器的退出协议（TODO #18）：`subtitle_rule_editor.run()` 原先 `sys.exit(app.exec_())`，`SystemExit` 继承 `BaseException`，插件入口的 `except Exception` 接不住，主程序可能拿到空 stdout（表现是“点修改配置关掉后没有任何提示”）。现在 `run()` **返回** Qt 事件循环的退出码，`__main__` 里才 `raise SystemExit(run())`；`QApplication.instance() or QApplication(sys.argv)` 兼容已有实例（便于离屏测试）（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
+- 插件入口把事件分发抽成 `handle_event(event, params)`：`main` 仍由 `srt_keyword_editor.main()` 自己输出带 `completed_output_lists` 的 JSON（不重复输出），`subtitle_rule_editor` 分支统一走 `output_result`；`__main__` 新增 `except SystemExit`——退出码 0 输出 `status: true`、非 0 输出 `status: false` 并带“退出码 N”，异常分支保持原有 traceback + 错误 JSON（`软件本体/plugins/srt关键词替换/__init__.py`）。顺带修掉 `srt_keyword_editor.main()` 在空参数时 `sys.exit(1)` 同样绕过 `except Exception` 的老问题。
+- 新增 `tests/test_plugin_protocol.py`（7 项）：单元层用桩模块验证正常关闭输出成功 JSON、编辑器异常向上冒泡、AST 断言 `run()` 内无 `sys.exit` 且有 `return`；子进程层把入口复制到临时目录、用桩 `subtitle_rule_editor` 跑真实 stdin/stdout 协议，覆盖 `SystemExit(0)`、`SystemExit(1)`（消息含“退出码 1”）、普通异常（stderr 有 traceback）以及空 stdin 仍返回 JSON 且退出码 1。`conftest.py` 新增 `keyword_plugin_module` fixture（占位标准流 + 内存 logger，避免测试往仓库写 `plugin_log/`）。
+- 归档自 `TODO.md` #18，编号不复用。
+
 - 规则编辑器「新建」的落盘路径改为程序目录（TODO #17）：`new_file()` 原先用 `os.path.dirname(__file__)` 拼 `subtitle_rules.json`，单文件 exe 下 `__file__` 位于 PyInstaller 的 `_MEIPASS` 临时目录（只读、每次启动重建），"新建 → 保存"会写进临时目录或直接失败。新增模块级 `default_working_path()`，统一走 `get_path(use_program_dir=True)`（打包后 = exe 所在目录，开发环境 = 插件目录），`load_default_and_set_working_file()` 与 `new_file()` 共用它，避免两处各写一份路径（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
 - 保存失败时区分只读场景：`save_to_file()` 单独捕获 `OSError`，提示里带上失败路径、"目标位置可能不可写"，并引导改用「另存为」存到桌面/文档等可写目录，同时提醒另存到别处的规则需手动放回插件目录才会生效；其余异常仍走原提示。
 - 新增 `tests/test_rule_editor_paths.py`（5 项，`QT_QPA_PLATFORM=offscreen` 离屏运行，无需真实窗口）：`default_working_path()` 指向插件目录；伪造 `sys.frozen`/`sys.executable`/`sys._MEIPASS` 时指向 exe 目录且**不含** `_MEIPASS`；`new_file()` 设置的 `current_file` 等于 `default_working_path()`；把目录当文件写时 `save_to_file()` 返回 `False` 且提示含"另存为"；正常路径能写出 JSON。`conftest.py` 新增 `rule_editor_module` 与 `qt_app` fixture（后者在缺 PyQt5 或 offscreen 插件时 SKIP）。
