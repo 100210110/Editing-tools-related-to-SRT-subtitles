@@ -225,20 +225,24 @@ class SubtitleRuleProcessor:
     def _resolve_overlaps(self, matches):
         """
         输入匹配列表，每个元素为 (start, end, action)
-        返回过滤后不重叠的匹配列表（保留长词优先）
+        返回过滤后不重叠的匹配列表（长词优先）
+
+        原实现按 (start 升序, end 降序) 排序后线性过滤，只有"同起点"时才实现长词优先：
+        起点更早的短词会先占位，把后面更长的词挤掉（如 `ab` 与 `bcde` 在 `abcdef` 里只剩 `ab`）。
+        现改为按 (长度降序, 起点升序) 的区间调度：先放最长的匹配，再放与已选区间不冲突的，
+        于是"长词优先"对任意起点组合都成立，结果与输入顺序无关。
         """
         if not matches:
             return []
-        # 按开始升序，结束降序（使长词排在前面）
-        matches.sort(key=lambda x: (x[0], -x[1]))
-        resolved = []
-        last_end = -1
-        for start, end, action in matches:
-            if start < last_end:   # 重叠或包含，跳过
-                continue
-            resolved.append((start, end, action))
-            last_end = end
-        return resolved
+        ordered = sorted(matches, key=lambda item: (-(item[1] - item[0]), item[0]))
+        selected = []
+        for start, end, action in ordered:
+            if all(end <= chosen_start or start >= chosen_end
+                   for chosen_start, chosen_end, _ in selected):
+                selected.append((start, end, action))
+        # 交回按起点升序，保持调用方（从后往前替换）的预期
+        selected.sort(key=lambda item: item[0])
+        return selected
 
     def _apply_operations(self, text: str, matches: list) -> str:
         """根据匹配列表，从后往前删除或替换文本，并统计敏感词删除次数"""

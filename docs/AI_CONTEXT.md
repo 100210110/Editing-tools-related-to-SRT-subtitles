@@ -382,7 +382,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 10 | 逐文件读取文本，重置敏感词计数，调用 `process_text()` | `srt_keyword_editor.py:90-119` |
 | 11 | `process_text()` 用主自动机收集 delete/replace 匹配，解析重叠，按位置从右到左删除/替换 | `build_automaton.py:223-258`、`315-337` |
 | 12 | 在清理后的文本上执行 repeat：连续同词重复按 `max_times` 压缩；满足间隔条件时插入分隔符；不改变敏感词计数 | `260-313` |
-| 13 | 写回 `cache/output/<原 basename>.srt`，记录成功列表 | `srt_keyword_editor.py:104-113` |
+| 13 | 写回 `cache/output/<12位哈希>__<原 basename>.srt`（哈希前缀见 4.7 第 4 条），记录成功列表 | `srt_keyword_editor.py`（`cache_output_name()`） |
 | 14 | 统计每个文件删除的 profanity 次数，按降序取前 10，生成“文明小助手”文案 | `32-57`、`81-123` |
 | 15 | stdout 输出 JSON（含 `popup` 与 `completed_output_lists`） | `127-139` |
 
@@ -390,11 +390,11 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 - **大小写敏感**：AC 自动机默认精确匹配；英文变体靠规则里的人工枚举（如 `Kamu`、`karm`、`come`）覆盖，没有统一转小写逻辑（`build_automaton.py:199-221`）。
 - **删除计数**：只有 `delete.profanity` 中的词会累加计数；`delete.others` 只删除、不计数（`104-112`、`249-254`）。
-- **最长匹配**：`_resolve_overlaps()` 先按起点升序、终点降序排序，再线性过滤；**只有起点相同的候选才保证长词优先**，起点不同的重叠不保证全局最长匹配（`223-239`）。
-- **同位置冲突**：删除与替换若落在同一区间，最终结果取决于匹配收集顺序与排序稳定性；没有显式优先级（`223-258`）。
+- **最长匹配**：`_resolve_overlaps()` 按「长度降序、起点升序」的区间调度选匹配：先放最长的，再放与已选区间不冲突的，因此长词优先对**任意起点组合**都成立，结果与匹配收集顺序无关（`223-243`）。
+- **同位置冲突**：区间一旦重叠只保留一个（更长者优先；等长时取起点更早者），因此删除与替换不会同时命中同一段文本（`223-243`）。
 - **repeat 生效条件**：外层 `enabled=false` 时整条规则不生效（不识别、不压缩、不加分隔符）；`interval.enabled` 只控制是否插入分隔符，压缩与识别不受其影响（`122-161`、`269-276`）。
 - **repeat 识别与处理**：只识别无空格、无标点的连续同词重复；重复次数按“词出现次数”计算（如 `哈哈哈哈` 中 `哈哈` 计 2 次）；原始次数超过 `max_times` 时压缩，达到 `min_consecutive` 时可插入 `separator`；同位置多规则按 `max_times` 小者优先、再长词优先；处理顺序为 delete/replace → repeat，repeat 不改变敏感词计数（`260-313`、`315-337`）。
-- **输出命名**：与输入同 basename，不保留目录层级；同名输入会覆盖（`104-108`）。
+- **输出命名**：`cache/output/<12位哈希>__<原 basename>`，前缀来自源文件绝对路径，不同目录的同名输入不再互相覆盖；「文明小助手」统计与导出仍用原始文件名（`common.py` `cache_output_name()`）。
 - **规则缓存**：`subtitle_rules.pkl` 只通过 mtime 判断是否过期；如果 pkl 来自旧版本但 mtime 较新（例如 git checkout 后），会直接加载旧缓存；载荷已包含 repeat 状态，缺少 repeat 键的旧缓存会触发重建（`339-403`）。
 
 ### 5.5 规则编辑器流程
@@ -1150,7 +1150,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 中 | **导入/重装插件会静默覆盖用户改过的规则**：`install()` 直接 `rmtree` + `extractall`，而 `srt关键词替换` 的 zip 自带 `subtitle_rules.json`，同版本重装同样如此，程序只做版本比较、不提示（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/load_zip.py:333-362`；2026-10-22 真机测试 T15 复现 | 用户调过的规则会无声丢失，README 只能要求“升级前自己备份”。现已在 `rmtree` 之前自动备份内容有差异的同名文件到 `cache/plugin_backup/<plugin_id>/<时间戳>/`，备份失败则中止安装 |
 | 低 | **损坏的 manifest 会让主程序启动崩溃**：`scan_plugins` 直接 `json.load`，无 try/except；`init_program` 也没有捕获（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:118-120`（`json.load` 已包在 `_load_manifest` 的 try/except 内）、`508`（单次扫描）、`544`（汇总告警）；`tests/test_scan_plugins.py` | 一个插件配置写错会阻止整个工具启动。建议逐个 manifest 捕获异常并跳过/提示 |
 | 低 | **`scan_plugins()` 重复调用**（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:508` | 多一次扫描，当前无功能影响；可删除一次 |
-| 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位 | `软件本体/plugins/srt关键词替换/build_automaton.py:175-191` | 某些重叠词删除/替换结果不符合“长词优先”直觉。建议用区间调度/优先队列选择全局最优 |
+| 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/build_automaton.py` `_resolve_overlaps()` | 某些重叠词删除/替换结果不符合“长词优先”直觉。已改为按「长度降序、起点升序」的区间调度，长词优先对任意起点组合成立 |
 | 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复 | `build_automaton.py:133-138`；`subtitle_rule_editor.py:108-115` | 规则冲突不易发现。建议保存时做全局冲突检测 |
 | 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)` | `subtitle_rule_editor.py:214-218`（现状 `222`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。建议改用 `get_path(use_program_dir=True)`，与同文件 `178` 行一致 |
 | 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`** | `subtitle_rule_editor.py:852-857`；`srt关键词替换/__init__.py:66-90` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；建议统一返回/输出协议 |
