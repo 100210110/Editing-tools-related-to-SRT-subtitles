@@ -30,7 +30,8 @@
 - 固化 repeat 回归测试（`tests/test_repeat.py`，16 项）：压缩与分隔独立触发、原始连续次数门槛（不按压缩后次数）、外层 `enabled=false` 整条跳过、多规则 `max_times` 小者优先与同 `max_times` 长词优先、重复按词出现次数计口径、带空格/标点不识别、delete/replace 先于 repeat 且敏感词计数不变、真实 `subtitle_rules.json` 与 `default_subtitle_rules.json` 回归、缓存命中与失效重建两条路径下 repeat 状态一致。
 - 固化 pkl 缓存校验回归测试（`tests/test_cache.py`，10 项）：冷启动重建并写入 `json_content_hash` 与 `schema_version`、同内容第二次加载命中不重建、JSON 内容变化失效、仅缩进与键顺序变化仍命中、schema 版本不匹配失效、哈希不匹配失效、损坏 pkl 自动重建不崩溃、旧载荷缺字段重建、`force_rebuild=True` 跳过校验并写回新哈希、命中与重建路径 repeat 规则一致。
 - 验证结论（2026-10-22，`.venv` 下 `pytest tests/ -q`）：收集 60 项，**59 passed / 1 skipped**，唯一 SKIP 为「当前环境无法用普通权限模拟目录不可写」；目录联接越界用例在本机真实执行并通过（未走 SKIP）；`test_repeat.py` 对真实规则文件只读，未改写仓库内 JSON 或 pkl。任务全程未改动被测源码，测试运行后 `git status` 仅显示新增的 `tests/` 与 `requirements-dev.txt`。
-- 归档自 `TODO.md`「可选增强 / 测试补强」中 5 项可自动化条目；`插件导入 GUI 手工冒烟`、`repeat 规则 GUI/真实缓存手工冒烟`、`主程序真实缓存手工冒烟` 3 项需真实界面操作，仍保留在该节待人工执行。
+- 手工冒烟结论（2026-10-22，作者在真机执行，3 项全部通过）：**插件导入 GUI**——正常 zip 可装、非 zip/缺 `manifest.json` 失败、同版本与低版本重装询问的“取消/确认”分支，失败项保留在 `FILE_LIST` 并弹窗、取消项保留且不报错；**repeat 规则 GUI/真实缓存**——规则编辑器新增/修改/禁用 repeat 规则并保存后，主程序连续处理两个 SRT 的输出、弹窗统计、编辑器提示与真实 `subtitle_rules.pkl` 的命中/失效均符合预期；**主程序真实缓存**——首次处理生成 pkl、第二次命中不重建、修改 `subtitle_rules.json` 后自动失效重建，且 repeat 输出一致。
+- 归档自 `TODO.md`「可选增强 / 测试补强」全部 8 项（5 项自动化回归 + 3 项 GUI/真机手工冒烟）；该分类已清空，`TODO.md` 的「可选增强（长期）」小节保留但标注“当前无条目”。
 
 ### 修复
 
@@ -40,7 +41,7 @@
 - `install()` 现在返回真实安装结果：成功 `True`；路径校验、旧目录清理、解压等任一环节异常返回 `False`，错误弹窗保留；`load_zip_json()` 同时覆盖非 zip、缺失 `manifest.json` 等打开/解析失败（`软件本体/load_zip.py`）。
 - `check_version_and_install()` 改为三态返回：`True`=安装成功、`False`=安装失败、`None`=用户取消重装；取消不再计为失败（`软件本体/load_zip.py`）。
 - `import_plugin_list()` 按单项结果归入 `success_list` / `failed_files` / `skipped_files`；主程序现有逻辑无需改动，仍只从 `FILE_LIST` 移除成功项，失败项保留并弹窗，取消项保留且不报错（`软件本体/load_zip.py`）。
-- 验证结论（2026-10-22，临时无头脚本 + 模拟弹窗）：正常 zip 成功；非 zip、缺 `manifest.json`、缺 `name`/`version`、含越界成员 zip、模拟清理失败均进入 `failed_files` 且不删除既有目录；同版本/低版本取消重装进入 `skipped_files`，不计失败；混合导入三条列表均正确。真实弹窗点击尚未手工验证，脚本以模拟 `No`/`Yes` 覆盖返回语义。
+- 验证结论（2026-10-22，临时无头脚本 + 模拟弹窗）：正常 zip 成功；非 zip、缺 `manifest.json`、缺 `name`/`version`、含越界成员 zip、模拟清理失败均进入 `failed_files` 且不删除既有目录；同版本/低版本取消重装进入 `skipped_files`，不计失败；混合导入三条列表均正确。真实弹窗点击当时尚未手工验证，脚本以模拟 `No`/`Yes` 覆盖返回语义（2026-10-22 已由作者真机手工冒烟补齐，见「测试」节）。
 - pkl 缓存校验改用规则 JSON 的内容哈希：`json.dumps(json.loads(content), sort_keys=True, ensure_ascii=False)` 规范化后取 SHA-256，纯缩进/键顺序变化不触发重建；新增 `CACHE_SCHEMA_VERSION = 2` 标识载荷结构，载荷写入 `json_content_hash` 与 `schema_version`（`软件本体/plugins/srt关键词替换/build_automaton.py`）。
 - `_load_from_cache()` 改为完整校验链：pkl 缺失、`pickle.load` 异常、载荷非 dict、schema 版本不一致、内容哈希不一致、必要字段缺失均返回 `None` 并自动重建；`force_rebuild=True` 跳过校验强制重建并写回新哈希。原 `_is_cache_valid()`（仅按 mtime 判断）已移除。
 - `load_rules()` 在缓存校验前先调用 `_get_json()` 重新读取当前 JSON，保证哈希基于实际生效的规则文件（含回退写入的默认配置）；重建前清空旧解析状态，避免复用实例时残留旧规则。
@@ -56,11 +57,11 @@
 - 调查结论三（另记）：`import_plugin_list(FILE_LIST)` 传入整个列表且不按扩展名过滤（`534`），列表里混有 SRT 时这些字幕会被计入 `failed_files` 并出现在“以下文件未导入”弹窗中。本次未改动该行为（`TODO.md` 手工冒烟项仍按“非 zip 视作失败”验收），如需过滤应另开条目。
 - 改动一（`534-562`）：`import_plugin` 分支改为**仅当 `success_list` 非空时**才移除 zip、销毁 Tk 根并重建窗口；失败、取消重装与无变动场景只弹窗（仅失败）并打印“本次导入未安装任何插件，窗口保持不变”，随后 `continue`。`load_zip.py` 的返回值语义未改动。
 - 改动二（`423-441`）：`init_program()` 增加 `clear_cache=True` 参数，缓存清理改为受其控制；“导入插件”的重建路径传 `clear_cache=False`（`557`），“重启刷新”仍按重启语义清空缓存（`521-532`），首次启动行为不变。同步修正返回值说明为 5 元组。
-- 验证结论（2026-10-22，隔离副本 + 桩化 PySimpleGUI/TkDND 驱动 `main()` 事件循环，未触碰仓库目录）：成功导入 → 重建 1 次、zip 移除、`cache/output` 产物存活；失败导入 → **不重建**、弹错误框、列表不变、产物存活；取消重装 → **不重建**、无弹窗、列表不变、产物存活；无变动 → **不重建**；列表为链式产物时成功与取消两条路径产物均存活。`pytest tests/` 仍为 59 passed / 1 skipped，`py_compile` 通过。未做真实 GUI 手工冒烟，§9.6「插件导入」四项仍需人工在真机确认。
+- 验证结论（2026-10-22，隔离副本 + 桩化 PySimpleGUI/TkDND 驱动 `main()` 事件循环，未触碰仓库目录）：成功导入 → 重建 1 次、zip 移除、`cache/output` 产物存活；失败导入 → **不重建**、弹错误框、列表不变、产物存活；取消重装 → **不重建**、无弹窗、列表不变、产物存活；无变动 → **不重建**；列表为链式产物时成功与取消两条路径产物均存活。`pytest tests/` 仍为 59 passed / 1 skipped，`py_compile` 通过。本次改动行为以隔离脚本验证；§9.6「插件导入」场景随后于同日由作者真机手工冒烟通过（见「测试」节），但「无变动」边界与“窗口未重建”是否被显式观察到未单独记录。
 - 归档自 `TODO.md` #25（手工冒烟时新增），编号不复用。
 
 ### 说明
 
 - TODO 初始化后已完成 #1、#2、#3、#5（插件安装路径穿越、安装失败仍报成功、repeat 规则、pkl 缓存校验与入库）；其余 20 项待办不变。
-- 2026-10-22 补充 pytest 测试框架与 5 项回归固化（见上文「测试」节），`TODO.md` 中对应条目已打勾留痕；GUI/主程序手工冒烟 3 项仍待人工执行。
+- 2026-10-22 补充 pytest 测试框架与 5 项回归固化（见上文「测试」节）；同日作者在真机完成 3 项 GUI/主程序手工冒烟并全部通过，「可选增强 / 测试补强」整节已归档，`TODO.md` 该分类清空。
 - 2026-10-22 完成手工冒烟新增的 #25（无插件变动时不再重建主窗口），详见上文「修复」节末段。遗留：“重启刷新”按钮仍会清空 `cache/output`（按重启语义保留现状）；`import_plugin_list` 不按扩展名过滤、SRT 会被计入失败列表，未在本次处理。

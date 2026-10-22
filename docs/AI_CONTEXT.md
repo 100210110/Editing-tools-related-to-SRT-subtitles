@@ -929,7 +929,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 - 已建立 `tests/`（pytest，60 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **59 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
 - `tests/conftest.py` 通过 `importlib` 按路径加载被测模块以兼容中文目录；`load_zip` 的 `get_path` 与弹窗在 fixture 内 monkeypatch，规则 JSON/pkl 全部限制在 `tmp_path`，因此测试不读写仓库内运行产物。
-- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟仍未执行**，留在 `TODO.md`「测试补强」。
+- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
 - 仍无 CI 配置；上述手工入口照旧存在。
 
 ### 9.6 建议的冒烟测试清单
@@ -944,7 +944,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 | 规则编辑器 | 点击“修改配置”，新增一条替换，保存 | JSON 更新；再次处理时生效 |
 | 缓存 | 连续执行两个 SRT 插件 | 第二个插件处理的是第一个插件的输出 |
 | 导出 | 点击“导出并打开位置” | `output/` 出现文件，资源管理器打开 |
-| 插件导入 | `导入插件` 选择发布 zip | 版本确认后安装、窗口重启、按钮出现 |
+| 插件导入 | `导入插件` 选择发布 zip | 版本确认后安装、按钮出现；仅在真正装上插件时重建窗口（失败/取消重装不重建） |
 | ASS | 准备 ffmpeg 后处理 `test.ass` | 生成带透明通道的 `.mov` |
 
 ### 9.7 常见故障对照
