@@ -24,7 +24,7 @@
         },
         {
             "name": "DeepSeek",
-            "vision": "DeepSeek-R1",
+            "vision": "DeepSeek-V4.1-Flash-1017",
             "belong": "DeepSeek团队",
             "contact": [
                 {
