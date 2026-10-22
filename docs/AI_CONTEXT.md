@@ -30,8 +30,8 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 项目 | 内容 | 依据 |
 |---|---|---|
 | 显示名称 | Re工具箱 / 字幕处理工具合集 / 视频后期工具箱 | `软件本体/插件调度主程序.py:344`、`软件本体/config.json:1-4` |
-| 当前版本 | `1.3.0` | `软件本体/config.json:4` |
-| 配置中的更新日期 | `2026-06-17` | `软件本体/config.json:5` |
+| 当前版本 | `1.4.0b`（beta） | `软件本体/config.json:4` |
+| 配置中的更新日期 | `2026-10-22` | `软件本体/config.json:5` |
 | 代码仓库最新提交 | `5ff5463 feat: 窗口size由固定改为自动`（2026-10-22） | `git log` |
 | 作者 | Re（B站、Q群、GitHub 100210110）；配置中还列出 DeepSeek 作为 AI 辅助 | `软件本体/config.json:7-35` |
 | 许可证 | MIT | `Editing-tools-related-to-SRT-subtitles/LICENSE:1-3` |
@@ -502,8 +502,8 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 |---|---|---|---|
 | `name` | string | `字幕处理工具合集` | 否（仅展示性） |
 | `description` | string | 插件控制台说明 | 否 |
-| `version` | string | `1.3.0`，显示在窗口底部 | 是（`插件调度主程序.py:58`） |
-| `update_date` | string | `2026-06-17` | 是（`59`） |
+| `version` | string | `1.4.0b`，显示在窗口底部 | 是（`插件调度主程序.py:58`） |
+| `update_date` | string | `2026-10-22` | 是（`59`） |
 | `others` | string | 作者备注“这个配置文件没什么用” | 否 |
 | `authors` | array | 作者与联系方式 | 否 |
 
@@ -893,37 +893,62 @@ cd "E:/projects/ReToolbox"
 
 先装打包依赖：`pip install -r requirements-dev.txt`（含 `pyinstaller==6.20.0`）。
 
-仓库给出的命令（`打包exe指令.txt:1`）：
+实际使用的命令（2026-10-22 打包 1.4.0b 时验证通过，见 CHANGELOG「打包」节；工作区根 `build_beta.py` 的 `main` 目标即此命令）：
 
 ```bash
-pyinstaller --onefile --windowed -i "icon.ico" \
+# cwd = 软件本体/
+pyinstaller --onefile --windowed --noconfirm \
+  -i "E:/…/软件本体/icon.ico" \
   --collect-all tkinterdnd2 \
   --hidden-import=tkdnd \
-  --add-data "icon.ico;." \
-  插件调度主程序.py \
-  --name "Re工具箱 - v1.1.0"
+  --add-data "E:/…/软件本体/icon.ico;." \
+  --name "Re工具箱 - v1.4.0b" \
+  --distpath <构建目录>/dist/main --workpath <构建目录>/work/main --specpath <构建目录>/spec \
+  插件调度主程序.py
 ```
 
 注意：
 
-- 命令中的版本名仍是 **v1.1.0**，与当前 `config.json` 的 1.3.0 不一致；实际打包前应更新 `--name`。
-- 该命令假定在 `软件本体/` 目录内执行（`icon.ico` 与 `插件调度主程序.py` 为相对路径）。
+- 命令中的版本名要跟随 `config.json` 的 `version`（`打包exe指令.txt:1` 仍写 `v1.1.0`，未随版本更新）。
+- 该命令假定在 `软件本体/` 目录内执行（脚本名与 `icon.ico` 用相对路径）；一旦加了 `--specpath`，`-i`/`--add-data` 的**相对路径会按 spec 目录解析**，因此这里写绝对路径，否则报 `Unable to find '<spec>\icon.ico'`。
+- `--hidden-import=tkdnd` 会报 `ERROR: Hidden import 'tkdnd' not found`：tkinterdnd2 0.4.3 没有同名 Python 模块，Tcl 库由 `--collect-all tkinterdnd2` 带入，功能不受影响，可直接删掉该参数。
 - `--windowed` 会隐藏控制台；主程序对 `sys.stdin/stdout/stderr` 做了 `None` 保护并重定向到 GUI 日志（`插件调度主程序.py:13-19`、`292`）。
 
 ### 9.4 构建插件
 
-仓库没有提供插件打包脚本或 `.spec` 文件。现有发布包显示：
+**已确认（2026-10-22 实测，附录 A3 就此关闭）**：三个插件都用 PyInstaller 单文件 + `--windowed` 打包，exe 名与 manifest 的 `executable` 一致；命令写在 `build_beta.py`（工作区根，不进 git），以下是等价形式（cwd = 各插件目录）：
 
-- 关键词插件打包为 `__init__.exe`（与 manifest 的 `executable: "__init__"` 对应）；
-- 前缀插件打包为 `自动给srt加前缀.exe`；
-- 测试插件打包为 `__init__.exe` 或 `test.exe`（不同版本命名不完全一致）。
+```bash
+# srt加前缀 → 自动给srt加前缀.exe
+pyinstaller --onefile --windowed --noconfirm --name "自动给srt加前缀" \
+  --distpath <…>/dist/prefix --workpath <…>/work/prefix --specpath <…>/spec \
+  自动给srt加前缀.py
 
-因此可以推断插件也是 PyInstaller 单文件打包，但**具体命令、`--add-data` 参数（规则默认文件/FFmpeg）、版本命名规则均未确认**。若要重新打包，需要至少保证：
+# srt关键词替换 → __init__.exe（PyQt5 由钩子收集，无需 --collect-all）
+pyinstaller --onefile --windowed --noconfirm --name "__init__" \
+  --paths "<…>/软件本体/plugins/srt关键词替换" \
+  --add-data "<…>/srt关键词替换/default_subtitle_rules.json;." \
+  --hidden-import=srt_keyword_editor --hidden-import=subtitle_rule_editor \
+  --hidden-import=build_automaton --hidden-import=common \
+  --hidden-import=ahocorasick --hidden-import=PyQt5 --hidden-import=PyQt5.sip \
+  --distpath … --workpath … --specpath … __init__.py
 
-1. 插件 exe 文件名与 manifest 的 `executable` 匹配（可省略 `.exe`）；
-2. 关键词插件的 `default_subtitle_rules.json` 被打进资源目录（`use_program_dir=False` 能读到）；
-3. ASS 插件 exe 旁边保留 `ffmpeg/bin/ffmpeg.exe`，或修改路径策略；
-4. PyQt5 相关 DLL 被正确收集。
+# 测试插件 → __init__.exe（--paths 保证插件目录的 test.py 优先于标准库 test 包）
+pyinstaller --onefile --windowed --noconfirm --name "__init__" \
+  --paths "<…>/软件本体/plugins/测试插件" \
+  --hidden-import=test --hidden-import=test_1 \
+  --distpath … --workpath … --specpath … __init__.py
+```
+
+必须遵守的约束：
+
+1. 插件 exe 文件名与 manifest 的 `executable` 匹配（可省略 `.exe`）；`__init__.exe` 与 `executable: "__init__"` 对应。
+2. 关键词插件的 `default_subtitle_rules.json` 必须用 `--add-data` 打进资源目录（`common.get_path` 默认 `use_program_dir=False`，从 `_MEIPASS` 读；工作副本 `subtitle_rules.json` 与 pkl 则在 exe 旁）。
+3. **入口文件叫 `__init__.py` 时必须显式 `--paths <插件目录>`**：PyInstaller 只把父目录（`plugins/`）加入模块搜索路径，同目录的 `common`/`build_automaton`/`srt_keyword_editor`/`subtitle_rule_editor`/`test`/`test_1` 会全部漏打，运行即 `ModuleNotFoundError`。
+4. 插件用 `--windowed` 不影响协议：宿主以 `subprocess.Popen(..., stdin/stdout/stderr=PIPE)` 启动时 GUI 子系统进程的管道句柄依然有效（v1.3.0 包与 1.4.0b 包均实测），且不会闪控制台。
+5. `--hidden-import=PyQt5` 会引出 `WARNING: Hidden import "sip" not found`（PyQt5 hook 的旧式探测），实际使用 `PyQt5.sip`，可忽略。
+6. ASS 插件仍按原约定处理：exe 旁保留 `ffmpeg/bin/ffmpeg.exe`，或修改路径策略；本次**未打包**该插件。
+
 
 ### 9.5 测试现状
 
@@ -947,7 +972,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 | 检查项 | 操作 | 预期 |
 |---|---|---|
-| 启动 | 开发模式启动主程序 | 窗口出现，底部显示 1.3.0，插件按钮按类别分组 |
+| 启动 | 开发模式启动主程序；打包后双击 exe | 窗口出现，底部显示当前 `config.json` 版本（1.4.0b 为 `1.4.0b (2026-10-22)`），插件按钮按类别分组 |
 | 插件发现 | 查看 `srt加前缀`、`srt关键词替换`、`测试插件`、`ass转码透明底视频` | 四个插件均出现（ass 插件即使无 FFmpeg 也应能被扫描） |
 | 插件容错 | 在 `plugins/` 下放一个 `manifest.json` 写错的目录（JSON 语法错误 / 缺 `name` / `executable` 指向不存在的文件），再启动 | 其他插件按钮照常出现、主程序不崩溃；启动后**只弹一次**窗列出全部失败插件与原因；日志里有对应的“⚠️ 插件加载失败，已跳过”行 |
 | 拖拽 | 拖入 1 个 SRT + 路径含空格的 SRT | 列表出现两项且路径完整 |
@@ -1121,7 +1146,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 低 | **`scan_plugins()` 重复调用**（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:508` | 多一次扫描，当前无功能影响；可删除一次 |
 | 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位 | `软件本体/plugins/srt关键词替换/build_automaton.py:175-191` | 某些重叠词删除/替换结果不符合“长词优先”直觉。建议用区间调度/优先队列选择全局最优 |
 | 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复 | `build_automaton.py:133-138`；`subtitle_rule_editor.py:108-115` | 规则冲突不易发现。建议保存时做全局冲突检测 |
-| 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)` | `subtitle_rule_editor.py:214-218` | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；**未在打包环境验证** |
+| 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)` | `subtitle_rule_editor.py:214-218`（现状 `222`） | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；2026-10-22 打包实测：启动加载路径正常（读 exe 旁 `subtitle_rules.json`），但“新建→保存”未实测落盘位置，按代码判断会写进临时目录。建议改用 `get_path(use_program_dir=True)`，与同文件 `178` 行一致 |
 | 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`** | `subtitle_rule_editor.py:852-857`；`srt关键词替换/__init__.py:66-90` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；建议统一返回/输出协议 |
 | 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数 | `load_zip.py:137-145` | 容易误用。建议删除或改为正式测试 |
 | 低 | **测试插件用 `raise KeyboardInterrupt` 模拟错误** | `软件本体/plugins/测试插件/__init__.py:68-70` | `KeyboardInterrupt` 不是 `Exception`，会走 Python 默认 traceback；仅调试用途 |
@@ -1185,11 +1210,11 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 |---|---|---|
 | A1 | GUI 实际运行行为、拖拽兼容性、按钮布局 | 本次只做静态阅读，未启动 GUI |
 | A2 | ASS 插件端到端输出是否正确（透明通道、时长、字体渲染） | 缺少 FFmpeg，未实际渲染 |
-| A3 | 插件 exe 的准确 PyInstaller 命令、`--add-data` 与依赖收集方式 | 仓库无插件打包脚本/`.spec`；仅能从发布包推断 |
+| A3 | 插件 exe 的准确 PyInstaller 命令、`--add-data` 与依赖收集方式 | **已确认（2026-10-22）**：三条命令与必须遵守的约束见 §9.4，可直接执行的版本在工作区根 `build_beta.py`；1.4.0b beta 包已按此打包并在干净目录跑通（见 CHANGELOG「打包」节） |
 | A4 | ASS 插件是否曾发布、通过何种渠道分发 | 现有 `v1.x/` 与 `发布zip/` 均未发现该插件 |
 | A5 | FFmpeg 的最低版本要求与推荐构建 | 代码只调用滤镜/编码器，未声明版本 |
 | A6 | PySimpleGUI 6.0 的授权/安装限制 | **已确认（2026-10-22）**：官方 PyPI 上存在 6.0（以及后续 6.2/6.3），wheel 为 `py3-none-any` 纯 Python 包，License 为 LGPLv3，无授权码/注册校验，安装方式就是普通 `pip install PySimpleGUI==6.0` |
-| A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | 依赖 PyInstaller 单文件模式的 `__file__` 行为，未实测 |
+| A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | **部分确认（2026-10-22）**：编辑器在打包环境能正常打开，并按 `get_path(use_program_dir=True)` 从 exe 旁的 `subtitle_rules.json` 正确加载（三个根节点 Delete/Repeat/Replace 齐全，无告警弹窗）；但 `new_file()` 仍用 `os.path.dirname(__file__)` 设 `current_file`（`subtitle_rule_editor.py:222`），打包后 `__file__` 位于 `_MEIPASS`，**「新建→保存」很可能写到临时目录、退出即失**，未实测保存动作（见 §11 对应条目） |
 | A8 | `default_subtitle_rules.json` 与 `build_automaton.py` 内嵌默认配置是否逐字一致 | 内容近似，未做 diff 比对 |
 | A9 | 旧版 `v1.0.0/v1.1.0b` 源码与当前实现的完整差异 | 仅抽查了目录与部分文件，未逐行 diff |
 | A10 | `plugin_log/` 是否应纳入版本管理、日志保留策略 | 当前无 `.gitignore`，需作者确认 |

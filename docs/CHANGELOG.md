@@ -59,6 +59,18 @@
 - 验证结论（2026-10-22）：`pip install -r requirements.txt --dry-run --ignore-installed` 与 dev 版均解析通过（pip 26.1.2）；另建干净 venv（Python 3.11.9）实装 `requirements-dev.txt`，6 个包逐个 import 成功、`tkinterdnd2` 的 TkDnD 原生库初始化成功、主程序启动不报错、`pytest tests/` 为 **59 passed / 1 skipped**，与开发环境一致。新环境间接依赖存在小幅漂移：`PyQt5_sip` 12.18.0 → 12.20.0、`pyinstaller-hooks-contrib` 2026.4 → 2026.9（均在 PyQt5/PyInstaller 的上游约束内），未做锁定。
 - 归档自 `TODO.md` #6，编号不复用。
 
+### 打包
+
+- 建立可复用的打包脚本 `build_beta.py`（工作区根，**不在 git 仓库内**）与四条 PyInstaller 命令，一次产出主程序 `Re工具箱 - v1.4.0b` 与 `srt加前缀`、`srt关键词替换`、`测试插件` 三个插件 exe；`ass转码透明底视频` 按约定不打包（缺 FFmpeg、未完善）。
+- 版本：`软件本体/config.json` → `1.4.0b` / `2026-10-22`；插件版本与主程序**解耦**（作者口径：插件有改动才递增，小改第三位、大改第二位）：`srt加前缀` 1.0.1 → **1.1.0**（解析重写 + 计数语义变更）、`srt关键词替换` 1.3.0 → **1.4.0**（新增 repeat + 缓存校验改造）、`测试插件` 保持 **1.0.0**（本次无改动）。三个 manifest 都没有日期字段，按约定未新增。
+- 产物（不入库）：`发布zip/Re工具箱/Re工具箱 - v1.4.0b-测试/`，结构对齐 v1.3.0 解包目录——主程序 12.2 MB、`srt关键词替换/__init__.exe` 35.9 MB、`测试插件/__init__.exe` 11.4 MB、`srt加前缀/自动给srt加前缀.exe` 6.8 MB，另有 `config.json`、`cache/{output,temp}`、`output`、`plugins/*`（manifest + exe，关键词插件附工作副本 `subtitle_rules.json`；不含 pkl）。
+- 冷构建耗时（`.venv` Python 3.11.9 + PyInstaller 6.20.0）：主程序 14.7 s、前缀 7.9 s、关键词 38.1 s、测试 12.1 s，合计 72.8 s。
+- 命令要点（完整命令见 `AI_CONTEXT.md` §9.3/§9.4）：四个目标统一 `--onefile --windowed`（GUI 子系统；宿主以管道启动时 stdin/stdout/stderr 仍然有效，已用 v1.3.0 参考包与本次产物双向核实，且不会闪控制台）；关键词插件必须 `--add-data default_subtitle_rules.json`（`common.get_path` 默认 `use_program_dir=False`，从 `_MEIPASS` 读默认规则）；主程序保留 `--collect-all tkinterdnd2 --add-data icon.ico`。
+- **打包配置的两个坑（本次踩到并已解决）**：① 指定 `--specpath` 后，`--add-data`/`-i` 的相对路径按 spec 目录解析，必须写绝对路径，否则报 `Unable to find '<spec>\icon.ico'`；② 入口文件名是 `__init__.py` 时，PyInstaller **只把父目录**加入模块搜索路径，同目录的 `common`/`build_automaton`/`srt_keyword_editor`/`subtitle_rule_editor`（以及测试插件的 `test`/`test_1`）不会被打入，运行时 `ModuleNotFoundError`——必须显式 `--paths <插件目录>`。
+- 验证结论（2026-10-22，干净目录只放 exe + `config.json` + `plugins/`，无源码、无 pkl）：主窗口正常、底部显示 `1.4.0b (2026-10-22)`、按钮按 `debug`(2 个)/`字幕处理`(3 个) 分组；argv 注入两个 SRT 后列表框刷新为 2 项（`console` 日志「更新列表框，当前共 2 个文件」）；点「srt加前缀」→ 多行字幕只在首行加 `文件名：`，再次点击不叠加；点「srt关键词替换」→ `哈哈哈哈哈哈→哈哈哈`、`完了完了完了完了→完了 完了`（repeat 生效）、按文件名统计敏感词并弹「文明小助手」；`subtitle_rules.pkl` 与 `plugin_log/` 均生成在**插件 exe 旁**（#5 的路径策略在打包环境成立）；第二次运行命中缓存不重建，向 `subtitle_rules.json` 追加敏感词后自动失效重建且新词被删；「修改配置」打开的 PyQt5 编辑器能正确读取 exe 旁的规则（Delete/Repeat/Replace 三个根节点）；点「导出」把 `cache/output` 移到 `output/` 并清空列表；同版本插件 zip 触发「已安装版本与当前版本相同，是否重装？」的 Yes/No 询问；测试插件弹窗显示收到的参数 JSON。三个插件 exe 另按 stdin/stdout 协议单独调用，均返回合法 JSON，前缀插件的 `total/processed/skipped/failed` 与 #11 规格一致（4 输入 → 2 处理 / 2 跳过 / 1 失败）。
+- 打包警告（均无害，建议后续清理）：主程序 `--hidden-import=tkdnd` 报 `ERROR: Hidden import 'tkdnd' not found`（tkinterdnd2 0.4.3 没有同名 Python 模块，Tcl 库由 `--collect-all tkinterdnd2` 带入，拖放注册正常）；关键词插件报 `WARNING: Hidden import "sip" not found`（PyQt5 hook 的旧式探测，实际使用 `PyQt5.sip`）。
+- 未验证（需真机人工）：鼠标真实拖放（TkDND 初始化与 `drop_target_register` 已随窗口创建成功）、测试插件「测试报错」的 `KeyboardInterrupt` 分支、规则编辑器「新建→保存」的实际落盘位置（见 `AI_CONTEXT.md` 附录 A7）。
+
 ### 修复
 
 - 插件安装前校验 manifest 的 `plugin_id`（未提供时回退 `name`）：仅允许字母、数字、下划线、连字符与中文，拒绝空值、`.`/`..`、路径分隔符、盘符与绝对路径，校验失败时中止安装并提示（`软件本体/load_zip.py`）。
@@ -115,6 +127,8 @@
 - 验证结论（2026-10-22）：`pytest tests/test_scan_plugins.py -q` 16 passed；全量 `pytest tests/` 为 **100 passed / 1 skipped**；`py_compile` 通过。另在临时目录搭了“1 正常 + JSON 坏 + 可执行文件缺”的 plugins 目录，桩化 GUI 后跑真实 `init_program()`：正常插件 1 个按钮、窗口创建 1 次、弹窗 1 次且正文列出两条、日志两行；再跑一次 `init_program(clear_cache=False)` 复现“导入插件后重建”，同样只弹一次。用真实 `软件本体/plugins` 扫描得 6 个按钮、0 失败，与改动前一致。**未在真机上点按钮验证弹窗外观**（§9.6「插件容错」项仍需人工确认）。
 
 ### 说明
+
+- 2026-10-22 完成 1.4.0b beta 打包与干净环境验证，详见上文「打包」节。遗留：① `打包exe指令.txt` 仍是 v1.1.0 时代的单条主程序命令，本次按约束未改，建议按 §9.3/§9.4 回填四条命令或改为指向 `build_beta.py`；② 打包暴露的代码问题（规则编辑器「新建」用 `__file__` 定位保存路径、前缀插件未给 stderr 做 `None` 保护、测试插件的 `test` 模块与标准库同名）本次只记录未修，处理意见见任务汇报与 `AI_CONTEXT.md` §11。
 
 - 2026-10-22 完成 #13（容错损坏的插件 manifest）并顺带清掉 #14（重复扫描），详见上文「修复」节末段。遗留：① 告警弹窗在“导入插件后重建窗口”时会**再弹一次**（同一批失败项每次都汇总提示，未做“本会话已提示过”的去重）；② 多按钮插件只要一个按钮的 `executable` 缺失就整插件跳过，若将来出现“按钮可选”的需求需再调整；③ `name` 改为强制字段，手工拷贝进 `plugins/` 且没有 `name` 的老插件会被跳过（`load_zip.py` 安装的插件都带 `name`，正常不会遇到）。
 - TODO 初始化后已完成 #1、#2、#3、#5（插件安装路径穿越、安装失败仍报成功、repeat 规则、pkl 缓存校验与入库）；其余 20 项待办不变。
