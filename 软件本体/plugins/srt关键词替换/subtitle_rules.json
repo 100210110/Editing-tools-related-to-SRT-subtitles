@@ -32,7 +32,9 @@
             "他妈",
             "他喵",
             "tm",
-            "oh shit"
+            "oh shit",
+            "我去了",
+            "二逼"
         ],
         "others": [
             "呃",
@@ -103,26 +105,41 @@
                     "type": "group",
                     "enabled": true,
                     "items": [
-                        { "word": "卡慕", "enabled": true, "source": ["卡布", "卡莫", "卡木", "卡不", "卡姆", "Kamu", "karm", "come", "卡慕 on", "扛我", "Kobe", "carm", "Kame", "蛤蟆", "Carmore", "Carmel", "考不"] },
-                        { "word": "卡慕SaMa", "enabled": true, "source": ["卡慕sama", "卡慕Sama", "卡慕沙发", "卡慕沙吧", "砍不上吗", "卡慕萨巴", "卡慕沙吗", "卡穆萨玛"] },
+                        { "word": "卡慕", "enabled": true, "source": ["卡布", "卡莫", "卡木", "卡不", "卡姆", "Kamu", "karm", "come", "卡慕 on", "扛我", "Kobe", "carm", "Kame", "蛤蟆", "Carmore", "Carmel", "考不", "康姆", "康夫", "康明"] },
+                        { "word": "卡慕SaMa", "enabled": true, "source": ["卡慕sama", "卡慕Sama", "卡慕沙发", "卡慕沙吧", "砍不上吗", "卡慕萨巴", "卡慕沙吗", "卡穆萨玛", "卡慕桑", "卡姆桑", "卡木萨马", "卡木沙发"] },
                         { "word": "谭俊峰", "enabled": true, "source": ["传进风"] },
-                        { "word": "米洛", "enabled": true, "source": ["米诺", "米罗", "笔落", "余姚", "比洛", "米拉", "米露", "米勒", "明总", "皮罗"] },
-                        { "word": "萝卜吃米洛", "enabled": true, "source": ["萝卜吃鱼了", "罗旭罗", "罗旭"] },
-                        { "word": "宁宇航", "enabled": true, "source": ["李宇航"] },
-                        { "word": "碧月狐", "enabled": true, "source": ["碧月湖", "闭月狐", "毕业胡", "b月湖", "b月会", "B2胡", "月壶", "夜壶", "壁虎", "鳖胡", "别胡", "憋活", "别活", "冰壶", "必有火", "碧红", "边火"] },
-                        { "word": "曹某", "enabled": true, "source": ["Tom"] },
-                        { "word": "曹小龙", "enabled": true, "source": ["草药龙", "张小龙", "操小龙", "超小龙", "曹勇", "沙拉龙", "条龙"] },
+                        { "word": "米洛", "enabled": true, "source": ["米诺", "米罗", "笔落", "余姚", "比洛", "米拉", "米露", "米勒", "明总", "皮罗", "比罗", "余罗"] },
+                        { "word": "萝卜吃米洛", "enabled": true, "source": ["萝卜吃鱼了", "罗旭罗", "罗旭", "罗密罗", "萝卜吃米多", "罗伯茨米洛", "罗斯米罗"] },
+                        { "word": "宁宇航", "enabled": true, "source": ["李宇航", "宁雨涵"] },
+                        { "word": "碧月狐", "enabled": true, "source": ["碧月湖", "闭月狐", "毕业胡", "b月湖", "b月会", "B2胡", "月壶", "夜壶", "壁虎", "鳖胡", "别胡", "憋活", "别活", "冰壶", "必有火", "碧红", "边火", "碧湖"] },
+                        { "word": "曹某", "enabled": true, "source": ["Tom", "曹宝"] },
+                        { "word": "曹小龙", "enabled": true, "source": ["草药龙", "张小龙", "操小龙", "超小龙", "曹勇", "沙拉龙", "条龙", "小小龙", "苍龙", "曹晓龙", "苍耳龙", "曹小楼", "赵小龙", "曹龙", "陶荣"] },
                         { "word": "qiqi", "enabled": true, "source": ["KIKI", "KI KI", "KKI", "QIQI", "QI QI", "KIQI", "KIK", "QY QY", "QYQY", "QQ可爱"] },
-                        { "word": "Q3", "enabled": true, "source": ["q3"] },
+                        { "word": "Q3", "enabled": true, "source": ["q3", "举蛋"] },
                         { "word": "贺子鹏", "enabled": true, "source": ["蔡子鹏", "鹤头", "赫德王", "赫兹峰"] },
-                        { "word": "药儿", "enabled": true, "source": ["幺儿"] },
-                        { "word": "流赫", "enabled": true, "source": ["流贺", "刘贺", "刘赫", "刘河", "刘恒"] },
-                        { "word": "死睿", "enabled": true, "source": ["sweet", "Siri", "THREE"] },
+                        { "word": "药儿", "enabled": true, "source": ["幺儿", "耀儿", "妖儿", "瑶儿"] },
+                        { "word": "流赫", "enabled": true, "source": ["流贺", "刘贺", "刘赫", "刘河", "刘恒", "轮喝", "刘哥", "刘鹤", "刘慧"] },
+                        { "word": "死睿", "enabled": true, "source": ["sweet", "Siri", "THREE", "three", "10月", "死瑞"] },
                         { "word": "烦华", "enabled": true, "source": ["芳芳"] },
                         { "word": "鸽一品", "enabled": true, "source": ["葛一平", "GEP", "隔一天", "割一瓢"] },
                         { "word": "幕川北", "enabled": true, "source": ["木川北", "莫川北", "吴川美", "沐川北", "木船被"] },
                         { "word": "红叔", "enabled": true, "source": ["猴叔"] },
-                        { "word": "叶智炜", "enabled": true, "source": ["叶志伟"] }
+                        { "word": "叶智炜", "enabled": true, "source": ["叶志伟"] },
+                        { "word": "丹封", "enabled": true, "source": ["丹峰", "丹风", "单方", "带风", "丹枫", "弹风"] },
+                        { "word": "DJK", "enabled": true, "source": ["DJ k", "DK"] },
+                        { "word": "老柠檬", "enabled": true, "source": ["老娘蒙"] },
+                        { "word": "丘丘", "enabled": true, "source": ["球球"] },
+                        { "word": "尹诗渊", "enabled": true, "source": ["影石人"] },
+                        { "word": "胡佳斐", "enabled": true, "source": ["黄佳飞", "会加飞"] },
+                        { "word": "卡丘", "enabled": true, "source": ["卡秀", "卡秋", "卡就", "卡修", "凯乔", "凯秋", "卡球"] },
+                        { "word": "昂口", "enabled": true, "source": ["oncall", "Ankle", "安克", "翁库"] },
+                        { "word": "幕川北", "enabled": true, "source": ["木川杯"] },
+                        { "word": "稽木白柏", "enabled": true, "source": ["鸡拜拜", "g班有", "吉五班来", "舅母拜拜", "金拜拜", "金不白", "金白"] },
+                        { "word": "孙政", "enabled": true, "source": ["孙昭"] },
+                        { "word": "昂口red", "enabled": true, "source": ["安科瑞的", "昂科瑞德"] },
+                        { "word": "小橙", "enabled": true, "source": ["小陈"] },
+                        { "word": "歌子姐", "enabled": true, "source": ["鸽子姐"] },
+                        { "word": "KK", "enabled": true, "source": ["菲菲"] }
                     ]
                 },
                 {
@@ -132,7 +149,8 @@
                     "items": [
                         { "word": "控距", "enabled": true, "source": ["控狙"] },
                         { "word": "TP", "enabled": true, "source": ["TV"] },
-                        { "word": "跳劈", "enabled": true, "source": ["跳p"] }
+                        { "word": "跳劈", "enabled": true, "source": ["跳p"] },
+                        { "word": "速搭", "enabled": true, "source": ["速达"] }
                     ]
                 },
                 {
@@ -153,10 +171,16 @@
                         { "word": "煤炭", "enabled": true, "source": ["没炭"] },
                         { "word": "岩浆湖", "enabled": true, "source": ["人江湖"] },
                         { "word": "岩浆", "enabled": true, "source": ["岩尖"] },
-                        { "word": "刷怪笼", "enabled": true, "source": ["创二龙"] },
+                        { "word": "刷怪笼", "enabled": true, "source": ["创二龙", "刷过龙"] },
                         { "word": "猪灵堡垒", "enabled": true, "source": ["珠林堡垒", "朱宁堡垒"] },
                         { "word": "末影水晶", "enabled": true, "source": ["魔女水晶"] },
-                        { "word": "主世界", "enabled": true, "source": ["主界"] }
+                        { "word": "主世界", "enabled": true, "source": ["主界"] },
+                        { "word": "下界疣", "enabled": true, "source": ["下芥油", "下界油"] },
+                        { "word": "深板岩", "enabled": true, "source": ["圣曼延"] },
+                        { "word": "刷怪笼", "enabled": true, "source": ["沙盖龙"] },
+                        { "word": "饱食度", "enabled": true, "source": ["宝石度"] },
+                        { "word": "干草块", "enabled": true, "source": ["甘草块", "干枣块"] },
+                        { "word": "摔落伤害", "enabled": true, "source": ["摔的伤害"] }
                     ]
                 }
             ]
@@ -166,10 +190,20 @@
             "type": "group",
             "enabled": true,
             "items": [
-                { "word": "OK", "enabled": true, "source": ["okay"] },
+                { "word": "OK", "enabled": true, "source": ["okay", "ok"] },
                 { "word": "厉害", "enabled": true, "source": ["牛逼"] },
                 { "word": "懂你意思", "enabled": true, "source": ["don't listen"] },
-                { "word": "好枪", "enabled": true, "source": ["烤箱"] }
+                { "word": "好枪", "enabled": true, "source": ["烤箱"] },
+                { "word": "嘿", "enabled": true, "source": ["hey"] },
+                {
+                    "word": "语气词插入空格",
+                    "type": "group",
+                    "enabled": true,
+                    "items": [
+                        { "word": "哦 ", "enabled": true, "source": ["哦"] },
+                        { "word": "啊 ", "enabled": false, "source": ["啊"] }
+                    ]
+                }
             ]
         },
         {
@@ -190,7 +224,7 @@
                     "type": "group",
                     "enabled": true,
                     "items": [
-                        { "word": "巴克什", "enabled": true, "source": ["8个10", "挖个10", "BUG10", "巴克斯"] },
+                        { "word": "巴克什", "enabled": true, "source": ["8个10", "挖个10", "BUG10", "巴克斯", "8个1"] },
                         { "word": "普坝", "enabled": true, "source": ["普巴"] },
                         { "word": "大坝", "enabled": true, "source": ["大巴"] },
                         { "word": "坝顶", "enabled": true, "source": ["霸顶"] },
@@ -199,7 +233,10 @@
                         { "word": "牢区", "enabled": true, "source": ["老区"] },
                         { "word": "西楼", "enabled": true, "source": ["西路"] },
                         { "word": "蓝数", "enabled": true, "source": ["蓝树"] },
-                        { "word": "蓝核", "enabled": true, "source": ["蓝盒"] }
+                        { "word": "蓝核", "enabled": true, "source": ["蓝盒"] },
+                        { "word": "二员", "enabled": true, "source": ["二元"] },
+                        { "word": "牢区", "enabled": true, "source": ["劳区"] },
+                        { "word": "黄板", "enabled": true, "source": ["黄斑"] }
                     ]
                 },
                 {
@@ -209,8 +246,11 @@
                     "items": [
                         { "word": "麦晓雯", "enabled": true, "source": ["麦小文"] },
                         { "word": "威龙", "enabled": true, "source": ["维鲁"] },
-                        { "word": "蜂医", "enabled": true, "source": ["风衣"] },
-                        { "word": "乌鲁鲁", "enabled": true, "source": ["乌噜噜", "咕噜噜"] }
+                        { "word": "蜂医", "enabled": true, "source": ["风衣", "缝衣"] },
+                        { "word": "乌鲁鲁", "enabled": true, "source": ["乌噜噜", "咕噜噜"] },
+                        { "word": "女医", "enabled": true, "source": ["女一"] },
+                        { "word": "银翼", "enabled": true, "source": ["营义"] },
+                        { "word": "哈基蜂", "enabled": true, "source": ["哈基风"] }
                     ]
                 },
                 {
@@ -222,7 +262,15 @@
                         { "word": "破译", "enabled": true, "source": ["破夜"] },
                         { "word": "卡战备", "enabled": true, "source": ["卡站位"] },
                         { "word": "护航", "enabled": true, "source": ["护盘"] },
-                        { "word": "精标", "enabled": true, "source": ["金标"] }
+                        { "word": "精标", "enabled": true, "source": ["金标"] },
+                        { "word": "鼠鼠", "enabled": true, "source": ["属鼠", "属属"] },
+                        { "word": "理包", "enabled": true, "source": ["礼包"] },
+                        { "word": "放个墙", "enabled": true, "source": ["放个枪"] },
+                        { "word": "守尸", "enabled": true, "source": ["手湿"] },
+                        { "word": "铺烟", "enabled": true, "source": ["扑烟"] },
+                        { "word": "我能D", "enabled": true, "source": ["我能低"] },
+                        { "word": "D起来", "enabled": true, "source": ["低起来"] },
+                        { "word": "我D他", "enabled": true, "source": ["我低他"] }
                     ]
                 },
                 {
@@ -235,7 +283,8 @@
                             "type": "group",
                             "enabled": true,
                             "items": [
-                                { "word": "AUG", "enabled": true, "source": ["AOG"] }
+                                { "word": "AUG", "enabled": true, "source": ["AOG"] },
+                                { "word": "A达", "enabled": true, "source": ["a打", "a大"] }
                             ]
                         },
                         {
@@ -243,7 +292,7 @@
                             "type": "group",
                             "enabled": true,
                             "items": [
-                                { "word": "弹挂", "enabled": true, "source": ["半挂"] },
+                                { "word": "弹挂", "enabled": true, "source": ["半挂", "蛋挂"] },
                                 { "word": "六套", "enabled": true, "source": ["刘涛", "6炮"] }
                             ]
                         },
@@ -253,9 +302,48 @@
                             "enabled": true,
                             "items": [
                                 { "word": "本地特色首饰", "enabled": true, "source": ["本地特色手势"] },
-                                { "word": "希望之钥", "enabled": true, "source": ["希望之药"] }
+                                { "word": "希望之钥", "enabled": true, "source": ["希望之药"] },
+                                { "word": "黄金瞪羚", "enabled": true, "source": ["黄京津瞪羚"] },
+                                { "word": "甲修", "enabled": true, "source": ["假胸"] }
                             ]
                         }
+                    ]
+                },
+                {
+                    "word": "技能",
+                    "type": "group",
+                    "enabled": true,
+                    "items": [
+                        { "word": "激素烟", "enabled": true, "source": ["激素盐"] },
+                        { "word": "球烟", "enabled": true, "source": ["求烟"] }
+                    ]
+                }
+            ]
+        },
+        {
+            "word": "洛克王国",
+            "type": "group",
+            "enabled": true,
+            "items": [
+                {
+                    "word": "精灵名",
+                    "type": "group",
+                    "enabled": true,
+                    "items": [
+                        { "word": "厉毒小萝", "enabled": true, "source": ["利毒小罗"] },
+                        { "word": "泥吼牙", "enabled": true, "source": ["你吼牙"] }
+                    ]
+                },
+                {
+                    "word": "技能",
+                    "type": "group",
+                    "enabled": true,
+                    "items": [
+                        { "word": "藤绞", "enabled": true, "source": ["藤角"] },
+                        { "word": "淬火", "enabled": true, "source": ["翠火"] },
+                        { "word": "魔能爆", "enabled": true, "source": ["我能爆"] },
+                        { "word": "影袭", "enabled": true, "source": ["隐袭"] },
+                        { "word": "山火", "enabled": true, "source": ["煽火"] }
                     ]
                 }
             ]
