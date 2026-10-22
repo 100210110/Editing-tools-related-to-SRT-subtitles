@@ -10,6 +10,14 @@
 
 ## [未发布]
 
+### 检查
+
+- 核实仓库卫生现状并归档 TODO #21：`AI_CONTEXT.md` §11 与 `TODO.md` #21 的描述（`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 被跟踪、`plugin_log/` 无 `.gitignore`）**已经过时**——`git ls-files` 显示 46 个跟踪文件中无 `.pkl`、无 `.log`、无 `plugin_log/`；根级 `.gitignore` 已覆盖 `*.log`、`*.pkl`、`软件本体/cache/{output,temp,plugin_backup}/`、`软件本体/output/`、`软件本体/plugins/*/plugin_log/`、`__pycache__/`、`build/`、`dist/`、`*.spec`、插件内 FFmpeg 二进制与 IDE/系统杂项；`git check-ignore` 对四类典型运行产物全部命中。工作区仍保留 4 个 `ffmpeg-*.log` 与规则 pkl（已被忽略，按“保留工作区文件”的要求不清除），`plugins/srt关键词替换/plugin_log/` 当前不存在（插件运行后才会生成，且已被忽略）。
+- 补齐的唯一缺口是**文档准确性**：重写 `AI_CONTEXT.md` §3.4「仓库卫生现状」（跟踪文件数、产物不入库、`.gitignore` 覆盖范围、测试基础设施），关闭附录 A10（`plugin_log/` 策略 → 日志不入库，由 `RotatingFileHandler` 自行滚动 10 MB × 5），并给 §11「仓库卫生」条目加修复标注。
+- 新增 `tests/test_repo_hygiene.py`（3 项）：`.gitignore` 必须包含 8 条关键规则；`git check-ignore` 必须命中 5 类典型运行产物；`git ls-files` 中不得出现 `.pkl`/`.log`/`plugin_log/`/`cache/` 路径。无 git 环境时自动 SKIP。
+- 结论：TODO #21 的三条待办在代码/配置层面**早已完成**，本次只做核实 + 文档纠偏 + 回归护栏，未改动任何插件或主程序代码。
+- 归档自 `TODO.md` #21，编号不复用。
+
 ### 新增
 
 - 实现 `repeat` 重复词规则（`软件本体/plugins/srt关键词替换/build_automaton.py`）：外层 `enabled=false` 时整条规则不生效（不识别、不压缩、不加分隔符）；`interval.enabled` 只控制是否插入分隔符，不影响压缩与识别。

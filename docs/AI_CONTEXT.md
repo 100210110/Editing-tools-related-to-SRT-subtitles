@@ -196,9 +196,9 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 ### 3.4 仓库卫生现状
 
-- git 只跟踪 31 个文件（`git ls-files`）。
-- `cache/temp/ffmpeg-*.log` 四个日志被 git 跟踪；`subtitle_rules.pkl` 也被跟踪（`git ls-files`）。
-- `plugins/srt关键词替换/plugin_log/` 当前是 untracked（`git status` 显示 `?? .../plugin_log/`），且仓库没有 `.gitignore`。
+- git 跟踪 46 个文件（`git ls-files`，2026-10-23 夜间批量后统计）。
+- 运行产物**均不在版本控制内**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 已移出索引（工作区文件保留，`.gitignore` 说明为“不自动取消跟踪，需另行 `git rm --cached`”，实际已执行完成）；`plugins/*/plugin_log/` 从未入库。
+- 根级 `.gitignore` 覆盖 `*.log`、`*.pkl`、`软件本体/cache/{output,temp,plugin_backup}/`、`软件本体/output/`、`软件本体/plugins/*/plugin_log/`、`__pycache__/`、`build/`、`dist/`、`*.spec`、插件内 FFmpeg 二进制与 IDE/系统杂项；回归由 `tests/test_repo_hygiene.py` 守住（规则存在性 + `git check-ignore` + 索引扫描）。
 - 测试基础设施：勘察时（2026-10-22 前）没有 `tests/`、`pytest.ini`、`tox.ini`、GitHub Actions；现已建立 `tests/`（pytest）与 `requirements.txt` / `requirements-dev.txt`，仍无 CI（见 9.5）。
 
 ---
@@ -1156,7 +1156,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 低 | **规则编辑器退出用 `sys.exit`，`__init__.py` 的 `except Exception` 捕获不到 `SystemExit`** | `subtitle_rule_editor.py:852-857`；`srt关键词替换/__init__.py:66-90` | 编辑器关闭后主程序可能收不到 JSON，但不影响退出码 0；建议统一返回/输出协议 |
 | 低 | **`test_plugins_list()` 是失效/有缺陷的测试入口**：循环结束后只安装最后一个插件，空列表时 `plugin_zip` 未定义；主程序未使用该函数（已修复，见 CHANGELOG [2026-10-23]） | `load_zip.py:365-373` | 容易误用。建议删除或改为正式测试 |
 | 低 | **测试插件用 `raise KeyboardInterrupt` 模拟错误** | `软件本体/plugins/测试插件/__init__.py:68-70` | `KeyboardInterrupt` 不是 `Exception`，会走 Python 默认 traceback；仅调试用途 |
-| 低 | **仓库卫生**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 被跟踪；`plugin_log/` 未跟踪且无 `.gitignore` | `git ls-files`、`git status` | 运行产物/缓存入库，日志可能误提交。建议添加 `.gitignore`，清理已跟踪的缓存 |
+| 低 | **仓库卫生**：`cache/temp/ffmpeg-*.log` 与 `subtitle_rules.pkl` 被跟踪；`plugin_log/` 未跟踪且无 `.gitignore`（已修复，见 CHANGELOG [2026-10-23]） | `git ls-files`、`.gitignore` | 运行产物/缓存入库，日志可能误提交。现已加 `.gitignore` 并把 pkl/日志移出索引，现状见 §3.4 |
 | 低 | **拖放路径解析在无花括号时按空格拆分**（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/插件调度主程序.py:68-79` | 某些来源的含空格路径会被拆坏；TkDND 通常会给含空格路径加花括号，风险有限 |
 | 低 | **日志语句缺少 f-string**：`logger.info("params: {str(params)}")`（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/srt_keyword_editor.py:71` | 日志记录了字面量而不是参数，影响排查 |
 | 低 | **FFmpeg 以 `CREATE_NEW_CONSOLE` 启动并带 `-report`** | `ass转码透明底视频.py:141`、`156-164` | 可能闪控制台，且在 `cache/temp` 留下 ffmpeg 日志；建议 `CREATE_NO_WINDOW` 并清理日志 |
@@ -1220,10 +1220,10 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | A4 | ASS 插件是否曾发布、通过何种渠道分发 | 现有 `v1.x/` 与 `发布zip/` 均未发现该插件 |
 | A5 | FFmpeg 的最低版本要求与推荐构建 | 代码只调用滤镜/编码器，未声明版本 |
 | A6 | PySimpleGUI 6.0 的授权/安装限制 | **已确认（2026-10-22）**：官方 PyPI 上存在 6.0（以及后续 6.2/6.3），wheel 为 `py3-none-any` 纯 Python 包，License 为 LGPLv3，无授权码/注册校验，安装方式就是普通 `pip install PySimpleGUI==6.0` |
-| A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | **部分确认（2026-10-22）**：编辑器在打包环境能正常打开，并按 `get_path(use_program_dir=True)` 从 exe 旁的 `subtitle_rules.json` 正确加载（三个根节点 Delete/Repeat/Replace 齐全，无告警弹窗）；但 `new_file()` 仍用 `os.path.dirname(__file__)` 设 `current_file`（`subtitle_rule_editor.py:222`），打包后 `__file__` 位于 `_MEIPASS`，**「新建→保存」很可能写到临时目录、退出即失**，未实测保存动作（见 §11 对应条目） |
+| A7 | 打包后规则编辑器“新建/保存”的实际路径行为 | **部分确认（2026-10-22）**：编辑器在打包环境能正常打开，并按 `get_path(use_program_dir=True)` 从 exe 旁的 `subtitle_rules.json` 正确加载（三个根节点 Delete/Repeat/Replace 齐全，无告警弹窗）；当时 `new_file()` 仍用 `os.path.dirname(__file__)`，判断「新建→保存」很可能写到临时目录。**已修复（2026-10-23，见 CHANGELOG 同日 #17）**：`new_file()` 改走 `default_working_path()`，离屏测试覆盖“指向 exe 目录、不含 `_MEIPASS`”；打包环境「新建→保存→重新加载」仍未实测 |
 | A8 | `default_subtitle_rules.json` 与 `build_automaton.py` 内嵌默认配置是否逐字一致 | 内容近似，未做 diff 比对 |
 | A9 | 旧版 `v1.0.0/v1.1.0b` 源码与当前实现的完整差异 | 仅抽查了目录与部分文件，未逐行 diff |
-| A10 | `plugin_log/` 是否应纳入版本管理、日志保留策略 | 当前无 `.gitignore`，需作者确认 |
+| A10 | `plugin_log/` 是否应纳入版本管理、日志保留策略 | **已确认（2026-10-23）**：日志不入库——`.gitignore` 忽略 `软件本体/plugins/*/plugin_log/` 与全部 `*.log`；日志仅用于本地排查，由 `RotatingFileHandler` 自行滚动（10 MB × 5），保留策略交给使用者；见 §3.4 |
 | A11 | 是否存在未提交到工作区的测试/部署脚本 | 工作区与 git 仅显示现有 31 个跟踪文件；外部环境未知 |
 | A12 | “文明小助手”统计口径是否符合业务预期（按匹配次数而非文件数） | 代码明确按匹配次数计数，但业务意图未文档化 |
 
