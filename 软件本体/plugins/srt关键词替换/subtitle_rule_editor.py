@@ -14,6 +14,19 @@ import logging
 
 logger = logging.getLogger('str_editor_plugin')
 
+WORKING_RULE_FILENAME = "subtitle_rules.json"
+
+
+def default_working_path():
+    """工作规则文件路径：固定放在程序目录（可写），不跟随 `__file__`。
+
+    单文件 exe 下 `__file__` 位于 PyInstaller 的 `_MEIPASS` 临时目录（只读，且每次启动重建），
+    用它拼路径会让“新建 → 保存”写进临时目录、重启后丢失或直接失败。
+    `get_path(use_program_dir=True)` 在打包后返回 exe 所在目录，开发环境返回插件目录。
+    """
+    return os.path.join(get_path(use_program_dir=True), WORKING_RULE_FILENAME)
+
+
 
 # ---------- 对话框类 ----------
 def strip_regex_nodes(data):
@@ -233,7 +246,7 @@ class SubtitleEditor(QMainWindow):
     def load_default_and_set_working_file(self):
         
         default_path = get_path("default_subtitle_rules.json", use_program_dir=False)
-        working_path = os.path.join(get_path(use_program_dir=True), "subtitle_rules.json")
+        working_path = default_working_path()
         removed_regex = 0
 
         if os.path.exists(default_path):
@@ -312,6 +325,16 @@ class SubtitleEditor(QMainWindow):
                 f.write(json_str)
             QMessageBox.information(self, "成功", f"已保存至 {filename}")
             return True
+        except OSError as e:
+            # 打包后程序目录/临时目录可能只读，给“另存为”引导，避免用户以为规则丢了
+            QMessageBox.critical(
+                self, "错误",
+                f"保存失败: {str(e)}\n\n"
+                f"目标位置可能不可写：{filename}\n"
+                "请改用「另存为」，保存到桌面、文档等可写目录。\n"
+                "（注：另存到其他目录的规则需要手动放回插件目录才会生效）"
+            )
+            return False
         except Exception as e:
             QMessageBox.critical(self, "错误", f"保存失败: {str(e)}")
             return False
@@ -328,9 +351,10 @@ class SubtitleEditor(QMainWindow):
 
     def new_file(self):
         self.data = {"delete": {"profanity": [], "others": []}, "repeat": [], "replace": []}
-        self.current_file = os.path.join(os.path.dirname(__file__), "subtitle_rules.json")
+        # 工作文件固定在程序目录；打包后 __file__ 指向只读的 _MEIPASS，不能再用来拼路径
+        self.current_file = default_working_path()
         self.build_tree()
-        QMessageBox.information(self, "新建", "已清空所有规则，保存将写入 subtitle_rules.json")
+        QMessageBox.information(self, "新建", f"已清空所有规则，保存将写入 {self.current_file}")
 
     def open_file(self):
         filename, _ = QFileDialog.getOpenFileName(self, "打开规则文件", "", "JSON Files (*.json)")

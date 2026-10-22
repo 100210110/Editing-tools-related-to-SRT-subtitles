@@ -101,6 +101,11 @@
 
 ### 修复
 
+- 规则编辑器「新建」的落盘路径改为程序目录（TODO #17）：`new_file()` 原先用 `os.path.dirname(__file__)` 拼 `subtitle_rules.json`，单文件 exe 下 `__file__` 位于 PyInstaller 的 `_MEIPASS` 临时目录（只读、每次启动重建），"新建 → 保存"会写进临时目录或直接失败。新增模块级 `default_working_path()`，统一走 `get_path(use_program_dir=True)`（打包后 = exe 所在目录，开发环境 = 插件目录），`load_default_and_set_working_file()` 与 `new_file()` 共用它，避免两处各写一份路径（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
+- 保存失败时区分只读场景：`save_to_file()` 单独捕获 `OSError`，提示里带上失败路径、"目标位置可能不可写"，并引导改用「另存为」存到桌面/文档等可写目录，同时提醒另存到别处的规则需手动放回插件目录才会生效；其余异常仍走原提示。
+- 新增 `tests/test_rule_editor_paths.py`（5 项，`QT_QPA_PLATFORM=offscreen` 离屏运行，无需真实窗口）：`default_working_path()` 指向插件目录；伪造 `sys.frozen`/`sys.executable`/`sys._MEIPASS` 时指向 exe 目录且**不含** `_MEIPASS`；`new_file()` 设置的 `current_file` 等于 `default_working_path()`；把目录当文件写时 `save_to_file()` 返回 `False` 且提示含"另存为"；正常路径能写出 JSON。`conftest.py` 新增 `rule_editor_module` 与 `qt_app` fixture（后者在缺 PyQt5 或 offscreen 插件时 SKIP）。
+- 打包环境"新建 → 保存 → 重新加载"仍未实测（需重新打包 exe），已记入报告待人工验证。
+- 归档自 `TODO.md` #17，编号不复用。
 - 检测跨节点重复 `source`（TODO #16）：`_process_node()` 在建立“源词 → 正确词”映射时比对既有映射，冲突则记入新属性 `source_conflicts`（`(源词, 先出现的正确词, 后出现的正确词)`）并在 stderr 打印告警；**覆盖语义保持不变**（仍然后写入者生效），只把“静默冲突”变成“可见冲突”（`软件本体/plugins/srt关键词替换/build_automaton.py`）。
 - `common.py` 新增 `find_duplicate_sources(rules)`：递归 `replace` 树（只统计 `enabled` 节点，与主处理器口径一致），返回 `[{"source": ..., "targets": [目标词...]}]`；同一替换项内部重复不算冲突（沿用 `remove_source`/`add_source` 的单项去重）（`软件本体/plugins/srt关键词替换/common.py`）。
 - 编辑器三层提示：`SubtitleEditor.collect_sources()` 汇总“源词 → 所属正确词”；新增 `confirm_duplicate_sources()`，`save_to_file()` 写盘前扫描，冲突时列出「· 源词 → A / B」并询问是否继续，选“否”则**不落盘**（返回 `False`）；`ReplaceItemDialog` 新增 `known_sources` 参数，`add_source()` 发现该源词已属于别的替换项时先确认（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
