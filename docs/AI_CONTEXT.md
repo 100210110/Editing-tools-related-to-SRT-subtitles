@@ -30,7 +30,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 项目 | 内容 | 依据 |
 |---|---|---|
 | 显示名称 | Re工具箱 / 字幕处理工具合集 / 视频后期工具箱 | `软件本体/插件调度主程序.py:344`、`软件本体/config.json:1-4` |
-| 当前版本 | `1.4.0b`（beta） | `软件本体/config.json:4` |
+| 当前版本 | `1.4.1b`（beta） | `软件本体/config.json:4` |
 | 配置中的更新日期 | `2026-10-22` | `软件本体/config.json:5` |
 | 代码仓库最新提交 | `5ff5463 feat: 窗口size由固定改为自动`（2026-10-22） | `git log` |
 | 作者 | Re（B站、Q群、GitHub 100210110）；配置中还列出 DeepSeek 作为 AI 辅助 | `软件本体/config.json:7-35` |
@@ -502,7 +502,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 |---|---|---|---|
 | `name` | string | `字幕处理工具合集` | 否（仅展示性） |
 | `description` | string | 插件控制台说明 | 否 |
-| `version` | string | `1.4.0b`，显示在窗口底部 | 是（`插件调度主程序.py:58`） |
+| `version` | string | `1.4.1b`，显示在窗口底部 | 是（`插件调度主程序.py:58`） |
 | `update_date` | string | `2026-10-22` | 是（`59`） |
 | `others` | string | 作者备注“这个配置文件没什么用” | 否 |
 | `authors` | array | 作者与联系方式 | 否 |
@@ -905,7 +905,7 @@ pyinstaller --onefile --windowed --noconfirm \
   --collect-all tkinterdnd2 \
   --hidden-import=tkdnd \
   --add-data "E:/…/软件本体/icon.ico;." \
-  --name "Re工具箱 - v1.4.0b" \
+  --name "Re工具箱 - v1.4.1b" \
   --distpath <构建目录>/dist/main --workpath <构建目录>/work/main --specpath <构建目录>/spec \
   插件调度主程序.py
 ```
@@ -975,7 +975,7 @@ pyinstaller --onefile --windowed --noconfirm --name "__init__" \
 
 | 检查项 | 操作 | 预期 |
 |---|---|---|
-| 启动 | 开发模式启动主程序；打包后双击 exe | 窗口出现，底部显示当前 `config.json` 版本（1.4.0b 为 `1.4.0b (2026-10-22)`），插件按钮按类别分组 |
+| 启动 | 开发模式启动主程序；打包后双击 exe | 窗口出现，底部显示当前 `config.json` 版本（1.4.1b 为 `1.4.1b (2026-10-23)`），插件按钮按类别分组 |
 | 插件发现 | 查看 `srt加前缀`、`srt关键词替换`、`测试插件`、`ass转码透明底视频` | 四个插件均出现（ass 插件即使无 FFmpeg 也应能被扫描） |
 | 插件容错 | 在 `plugins/` 下放一个 `manifest.json` 写错的目录（JSON 语法错误 / 缺 `name` / `executable` 指向不存在的文件），再启动 | 其他插件按钮照常出现、主程序不崩溃；启动后**只弹一次**窗列出全部失败插件与原因；日志里有对应的“⚠️ 插件加载失败，已跳过”行 |
 | 拖拽 | 拖入 1 个 SRT + 路径含空格的 SRT | 列表出现两项且路径完整 |

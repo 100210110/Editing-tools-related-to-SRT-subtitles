@@ -1,7 +1,7 @@
 {
   "name": "测试插件",
   "category": "debug",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "存放一些测试用的脚本，没什么实际功能",
   "buttons": [
     {
