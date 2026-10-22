@@ -16,6 +16,47 @@ logger = logging.getLogger('str_editor_plugin')
 
 
 # ---------- 对话框类 ----------
+def strip_regex_nodes(data):
+    """移除 `type == "regex"` 的节点，返回移除数量。
+
+    regex 类型已废弃（主处理器从未实现，写了也不生效），保留它只会让用户误以为规则在工作。
+    加载与保存时都调用本函数做迁移：group / 其他节点原样保留，只递归处理 `items`。
+    """
+    removed = 0
+
+    def walk(nodes):
+        nonlocal removed
+        kept = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                kept.append(node)
+                continue
+            if node.get("type") == "regex":
+                removed += 1
+                continue
+            items = node.get("items")
+            if isinstance(items, list):
+                node["items"] = walk(items)
+            kept.append(node)
+        return kept
+
+    if isinstance(data, dict) and isinstance(data.get("replace"), list):
+        data["replace"] = walk(data["replace"])
+    return removed
+
+
+def warn_removed_regex(removed, parent=None):
+    """把迁移结果告知用户；没有移除时不打扰。"""
+    if removed:
+        logger.info(f"加载/保存规则时移除 regex 节点 {removed} 个")
+        QMessageBox.warning(
+            parent, "已移除 regex 规则",
+            f"规则里有 {removed} 个 type 为 regex 的节点。\n"
+            "该类型已废弃（旧版本也没有真正实现，写了不会生效），已自动移除。\n"
+            "保存一次即可把改动写回规则文件。"
+        )
+
+
 class RepeatRuleDialog(QDialog):
     def __init__(self, rule_data, parent=None):
         super().__init__(parent)
@@ -193,11 +234,13 @@ class SubtitleEditor(QMainWindow):
         
         default_path = get_path("default_subtitle_rules.json", use_program_dir=False)
         working_path = os.path.join(get_path(use_program_dir=True), "subtitle_rules.json")
+        removed_regex = 0
 
         if os.path.exists(default_path):
             try:
                 with open(default_path, 'r', encoding='utf-8') as f:
                     self.data = json.load(f)
+                removed_regex += strip_regex_nodes(self.data)
             except Exception as e:
                 QMessageBox.warning(self, "警告", f"加载默认文件失败：{str(e)}\n将使用空数据。")
                 self.data = {"delete": {"profanity": [], "others": []}, "repeat": [], "replace": []}
@@ -209,8 +252,11 @@ class SubtitleEditor(QMainWindow):
             try:
                 with open(working_path, 'r', encoding='utf-8') as f:
                     self.data = json.load(f)
+                removed_regex += strip_regex_nodes(self.data)
             except Exception as e:
                 QMessageBox.warning(self, "警告", f"加载工作文件失败：{str(e)}，将使用默认模板。")
+
+        warn_removed_regex(removed_regex, self)
 
 
     def collect_sources(self):
@@ -258,6 +304,8 @@ class SubtitleEditor(QMainWindow):
         try:
             if not self.confirm_duplicate_sources():
                 return False
+            # 兜底：regex 类型已废弃，不允许再写回规则文件
+            strip_regex_nodes(self.data)
             json_str = json.dumps(self.data, ensure_ascii=False, indent=4)
             json_str = self._compact_leaf_nodes(json_str)
             with open(filename, 'w', encoding='utf-8') as f:
@@ -292,6 +340,7 @@ class SubtitleEditor(QMainWindow):
                     self.data = json.load(f)
                 self.current_file = filename
                 self.build_tree()
+                warn_removed_regex(strip_regex_nodes(self.data), self)
                 QMessageBox.information(self, "成功", f"已加载 {filename}")
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"加载失败: {str(e)}")

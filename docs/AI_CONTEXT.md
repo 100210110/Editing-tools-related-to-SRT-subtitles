@@ -49,7 +49,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 插件导入（zip）、包完整性校验、版本比较、解压安装、重启刷新 | `软件本体/load_zip.py:43-327`（校验在 `175-226`）；`软件本体/插件调度主程序.py:601-624` | 已实现 |
 | 缓存式链式处理与统一导出 | `软件本体/插件调度主程序.py:362-401`、`439-462`、`637-646` | 已实现 |
 | SRT 文件名作为说话人前缀 | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:13-172` | 已实现（按空行分块、只在首个文本行加、按文件名幂等） |
-| 敏感词删除、错词替换、重复词压缩、删除次数统计（“文明小助手”） | `软件本体/plugins/srt关键词替换/build_automaton.py:56-403`、`srt_keyword_editor.py:32-139` | 已实现（含 `repeat` 压缩与可选分隔）；`regex` 规则未实现，见 6.5、11 节 |
+| 敏感词删除、错词替换、重复词压缩、删除次数统计（“文明小助手”） | `软件本体/plugins/srt关键词替换/build_automaton.py:56-403`、`srt_keyword_editor.py:32-139` | 已实现（含 `repeat` 压缩与可选分隔）；`regex` 类型已移除（旧实现本就是空操作），见 6.5、11 节 |
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
 | 测试插件（弹窗/报错） | `软件本体/plugins/测试插件/__init__.py:14-78` | 调试用途，非生产功能 |
@@ -376,7 +376,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 4 | 构建 `SubtitleRuleProcessor`，调用 `load_rules()` | `86-88` |
 | 5 | 校验 pkl 缓存的 `schema_version` 与 JSON 内容哈希：均匹配则 `pickle.load` 恢复自动机、映射与 repeat 状态；否则重新解析 JSON、构建自动机并写回缓存（`force_rebuild=True` 跳过校验强制重建） | `build_automaton.py:343-437` |
 | 6 | 解析 `delete`：所有词加入删除列表；`profanity` 子类加入敏感词集合；去重 | `104-112` |
-| 7 | 解析 `replace`：递归遍历分组；`correction` 节点建立“源词 → 正确词”双向映射；`group` 节点递归子项；`regex` 空操作 | `163-186` |
+| 7 | 解析 `replace`：递归遍历分组；`correction` 节点建立“源词 → 正确词”双向映射；`group` 节点递归子项；未知节点类型（含已废弃的 `regex`）跳过并告警 | `165-190` |
 | 8 | 解析 `repeat`：`enabled=false` 的规则整条跳过；填充重复词规则映射（`max_times`、间隔开关、门槛、分隔符） | `122-161` |
 | 9 | 构建主 AC 自动机：只加入 `delete_words` 和 `replace_source_to_word` 的源词；repeat 另建独立自动机 | `199-221` |
 | 10 | 逐文件读取文本，重置敏感词计数，调用 `process_text()` | `srt_keyword_editor.py:90-119` |
@@ -588,7 +588,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | `repeat[].interval.min_consecutive` | int | 最小连续次数 | 原始连续次数达到该值时插入分隔符（按压缩前计数） |
 | `repeat[].interval.separator` | string | 分隔符 | 插入在保留的重复词之间 |
 | `replace[]` | object[] | 替换规则树 | 递归解析 |
-| `replace[].type` | string | `group` / `correction` / `regex` | `group` 递归；`correction` 建映射；`regex` 空操作（`177-179`） |
+| `replace[].type` | string | `group` / `correction`（`regex` 已移除） | `group` 递归；`correction` 建映射；其他类型跳过并在 stderr 告警（`179-190`） |
 | `replace[].word` | string | 分组名或正确词 | `correction` 的目标词 |
 | `replace[].enabled` | bool | 是否启用 | `false` 时整棵子树跳过 |
 | `replace[].items` | object[] | `group` 的子节点 | 仅 `group` 使用 |
@@ -1138,7 +1138,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 高 | **安装失败仍返回成功**：`install()` 捕获异常后只弹窗，不返回 False；`check_version_and_install()` 随后无条件 `return True`（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:237-273`、`333-362` | 主程序会把失败 zip 从列表移除并提示安装成功。建议让 `install()` 返回 bool/抛异常，并据此更新结果 |
 | 高 | **损坏的插件包会先删后装，毁掉正常插件**：`load_zip_json()` 只解析 manifest 的 name/version/description/plugin_id，不校验按钮的 `executable` 是否真在包内；`install()` 直接 `rmtree` 旧目录再 `extractall`，导入按钮指向不存在文件的 zip 时，旧插件已被删除、坏包照装，主程序扫描时才跳过并告警（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/load_zip.py:115-135`、`184-235`、`237-240`、`333-362`；2026-10-22 真机测试 T11 复现 | 正常情况下用户可用插件会被一个残缺 zip 静默覆盖丢失。已增加 `validate_package()`：安装前静态校验每个 `executable` 可解析，失败即中止且不动旧目录；成员路径校验也已提到 `rmtree` 之前 |
 | 中 | **`repeat` 规则完全未生效**：编辑器可增删改并保存，但 `_parse_repeat_config()` 是 `pass` 且从未被 `load_rules()` 调用；AC 自动机只加入 delete/replace（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt关键词替换/build_automaton.py:121-123`、`161-173`、`280-289`；`subtitle_rule_editor.py:315-327`、`508-550` | 用户会以为“重复词压缩”已生效。建议实现、或在编辑器中明确标注“未启用/预留”并禁用 |
-| 中 | **`regex` 节点空操作** | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。建议实现或从 schema/编辑器中移除 |
+| 中 | **`regex` 节点空操作**（已修复，见 CHANGELOG [2026-10-23]） | `软件本体/plugins/srt关键词替换/build_automaton.py:177-179` | 规则中的 regex 配置不会生效，且没有提示。已按“移除”方案处理：处理端删掉空分支、未知类型改为 stderr 告警，编辑器加载/保存时剔除 `type: regex` 并提示，README 同步说明 |
 | 中 | **pkl 缓存只按 mtime 判断，且被 git 跟踪**（已修复，见 CHANGELOG [2026-10-22]） | `build_automaton.py:339-347`；`git ls-files` 显示 `subtitle_rules.pkl` 入库 | git checkout 后 pkl 的 mtime 往往比 JSON 新，可能加载旧规则；代码升级也不会自动失效。建议使用内容哈希/版本号，移除 pkl 出库，并在启动时校验 |
 | 中 | **无正式依赖清单**：仓库没有 `requirements.txt`/`pyproject.toml`；`.venv/old_requirements.txt` 缺少 PyQt5，且包含未使用包（已修复，见 CHANGELOG [2026-10-22]） | `.venv/old_requirements.txt`；`subtitle_rule_editor.py:5-11`；`pysub-parser`/`Unidecode` 未被 import | 新环境难以复现，规则编辑器容易因缺 PyQt5 失败。建议整理最小依赖清单并区分 runtime/dev/build |
 | 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者（已修复，见 CHANGELOG [2026-10-22]） | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`（行号已随 2026-10-22 重写失效）；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
@@ -1164,7 +1164,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 ### 11.1 建议的优先修复顺序
 
 1. **先修安装器安全与正确性**：`plugin_id` 路径校验、`install()` 返回值、`check_version_and_install()` 结果传递。
-2. **明确规则能力边界**：`repeat` 已实现；剩余 `regex` 需实现或在 UI/文档中标记为未启用，避免用户误解。
+2. **明确规则能力边界**：`repeat` 已实现；`regex` 已按“移除”方案处理（处理端告警 + 编辑器迁移 + README 同步），能力边界与文档一致。
 3. **缓存与依赖可复现**：增加 `requirements.txt`，移除 pkl/日志出库，加入 schema/内容哈希。
 4. **更新 README**：以 `subtitle_rules.json` 和规则编辑器为准，补全导入/导出/ASS 说明。
 5. **改善长任务体验**：插件异步执行、进度/取消、超时；至少避免 UI 假死。

@@ -187,11 +187,13 @@ class SubtitleRuleProcessor:
                             file=sys.stderr,
                         )
                     self.replace_source_to_word[src] = correct
-            case "regex":
-                # 未来处理正则
-                pass
             case _:
-                pass
+                # 未知类型（含已废弃的 regex）不参与处理，只在 stderr 提示，避免规则静默失效
+                print(
+                    f"警告：忽略未知规则节点类型 {node.get('type')!r}"
+                    f"（word={node.get('word', '')!r}）",
+                    file=sys.stderr,
+                )
 
     def _parse_replace_config(self):
         """解析 replace 部分，从顶层数组开始递归"""

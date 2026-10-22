@@ -67,6 +67,12 @@
 - `README.md` 三处同步：文件与列表的“请不要拖入同名文件”改为“可以放心拖入同名文件”，导出说明补充前缀会被剥离，已知限制里的“同名文件会互相覆盖”改为说明缓存名带哈希前缀（附“不是损坏”的提醒）。
 - **歧义说明**：TODO 只写了“哈希前缀或保留相对路径”，未规定长度与分隔符，这里取“12 位 + `__`”（12 位十六进制足以避碰，`__` 便于用 `strip_cache_prefix` 稳定剥离）；同名文件的敏感词统计仍按原文件名合并为一条，未按目录拆分。
 - 归档自 `TODO.md` #12，编号不复用。
+- 移除 `regex` 规则类型（TODO #4，用户口径：短期无正则需求，不做实现）：`_process_node()` 里 `case "regex": pass` 的空分支删除，`case _` 从静默 `pass` 改为向 stderr 打印「忽略未知规则节点类型」（带 `word`），残留的 regex 节点至少能被发现，而不是继续静默失效（`软件本体/plugins/srt关键词替换/build_automaton.py`）。
+- 编辑器侧做迁移而非拒绝：新增模块级 `strip_regex_nodes(data)`（递归 `replace[].items`，移除 `type == "regex"` 并返回数量）与 `warn_removed_regex()`；在启动加载（默认模板 + 工作文件）、`open_file()` 两条加载路径上剔除并提示，`save_to_file()` 再兜底剔除一次，保证迁移后的规则能写回文件（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
+- 默认规则无需改动：`subtitle_rules.json` 与 `default_subtitle_rules.json` 里本来就没有 `type: regex` 节点（全量扫描节点类型仅 `group` 与省略 `type` 的 leaf）。
+- `README.md` 两处同步：规则字段说明改为“`type` 只支持 `group` 与 `correction`，`regex` 已移除，编辑器加载时会剔除”，已知限制里的“`regex` 未实现”改为“规则只支持两类节点”。
+- 新增 `tests/test_regex_removal.py`（6 项）：`strip_regex_nodes` 移除顶层/嵌套节点并正确计数、其他类型与 `delete`/`repeat` 不受影响、无 regex 时为 no-op、两个出厂 JSON 里不含 `"regex"`、处理端遇到未知类型会在 stderr 告警且同文件里的正常节点照常生效。
+- 归档自 `TODO.md` #4，编号不复用。
 
 - 删除 `load_zip.py` 中失效的测试入口 `test_plugins_list()`（TODO #19）：该函数循环内只保留最后一个 `PluginInstaller`，空列表时 `plugin_zip` 未定义会抛 `UnboundLocalError`，且只对最后一个包调 `check_version_and_install()`；主程序从未调用它，正式入口是 `import_plugin_list()`。已确认全仓库无引用（仅 `AI_CONTEXT.md` §11 与 `TODO.md` 提及），直接删除；如需“遍历全部并正确处理空列表”的验证入口，应另建 pytest 用例而非保留 GUI 半成品函数（`软件本体/load_zip.py`）。
 - 归档自 `TODO.md` #19，编号不复用。
