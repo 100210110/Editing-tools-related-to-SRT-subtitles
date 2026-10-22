@@ -109,9 +109,122 @@ def on_drop(event, window):
 
 
 # ---------- 新增：扫描插件，返回按钮列表（每个按钮是一个字典） ----------
+def _load_manifest(json_path):
+    """读取并粗校验 manifest.json。
+
+    返回 (info, None)；无法使用时返回 (None, 原因)，原因用于启动后的汇总告警。
+    只判断"这个插件还能不能用"，不解析按钮。
+    """
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            info = json.load(f)
+    except json.JSONDecodeError as e:
+        return None, f"manifest.json 不是合法 JSON（第 {e.lineno} 行第 {e.colno} 列：{e.msg}）"
+    except OSError as e:
+        return None, f"manifest.json 读取失败：{e}"
+
+    if not isinstance(info, dict):
+        return None, "manifest.json 顶层不是对象"
+
+    name = info.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None, "缺少必需字段 name"
+
+    has_buttons = "buttons" in info
+    has_executable = bool(info.get("executable"))
+    if not has_buttons and not has_executable:
+        return None, "缺少必需字段 executable（或 buttons）"
+    if has_buttons and not isinstance(info["buttons"], list):
+        return None, "buttons 字段不是数组"
+
+    return info, None
+
+
+def _resolve_executable(folder_path, exe):
+    """把 manifest 里的 executable 解析成真实路径；解析不到返回 None。
+
+    允许省略扩展名（__init__ → __init__.py / __init__.exe）。
+    """
+    base_path = os.path.join(folder_path, exe)
+    # 1. 如果原始路径已存在（比如配置直接给了全名），直接使用
+    if os.path.exists(base_path):
+        return base_path
+    # 2. 尝试添加扩展名
+    base_without_ext = os.path.splitext(base_path)[0]
+    for ext in ['.py', '.exe']:
+        candidate = base_without_ext + ext
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _build_buttons(info, folder, folder_path):
+    """把一个插件的 manifest 转成按钮列表。
+
+    返回 (buttons, 原因)；原因非空表示该插件整体不可用，调用方应跳过并记录告警。
+    """
+    category = info.get("category", "未分类")
+
+    # 情况1：新版多按钮格式（存在 "buttons" 字段）
+    if "buttons" in info:
+        if not info["buttons"]:
+            return [], "buttons 为空，没有任何按钮"
+        built = []
+        for btn in info["buttons"]:
+            if not isinstance(btn, dict):
+                return [], "buttons 里存在非对象的条目"
+            label = btn.get("label")
+            exe = btn.get("executable")
+            if not label or not exe:
+                return [], "buttons 里存在缺少 label 或 executable 的按钮"
+            exe_path = _resolve_executable(folder_path, exe)
+            if not exe_path:
+                return [], f"按钮「{label}」的可执行文件不存在（{exe}，也试过同名 .py / .exe）"
+
+            btn_type = btn.get("type")
+            if not btn_type:
+                # 根据扩展名自动判断
+                if exe.endswith(".py"):
+                    btn_type = "script"
+                elif exe.endswith(".json"):
+                    btn_type = "config"
+                else:
+                    btn_type = "script"
+            # 生成唯一 key（使用插件文件夹名 + 按钮标签，避免重复）
+            built.append({
+                "category": category,
+                "label": label,
+                "tooltip": btn.get("tooltip", label),
+                "executable_path": exe_path,
+                "type": btn_type,
+                "key": f"BTN_{folder}_{label}",
+                "plugin_folder": folder_path,   # 备用，config 类型可能需要
+                "event": btn.get("event", "")
+            })
+        return built, None
+
+    # 情况2：旧版单按钮格式（只有 name, executable）
+    name = info.get("name", folder)
+    exe = info.get("executable")
+    exe_path = _resolve_executable(folder_path, exe)
+    if not exe_path:
+        return [], f"可执行文件不存在（{exe}，也试过同名 .py / .exe）"
+    return [{
+        "category": category,
+        "label": name,
+        "tooltip": info.get("description", name),
+        "executable_path": exe_path,
+        "type": "script",   # 旧版只可能是脚本
+        "key": f"BTN_{folder}_{name}",   # 兼容旧 key
+        "plugin_folder": folder_path
+    }], None
+
+
 def scan_plugins(plugins_dir=None):
-    """返回按钮列表，每个元素包含：
-       category, label, tooltip, executable_path, type, key, plugin_folder
+    """扫描插件目录，返回 (buttons, failures)。
+
+    buttons: 每个元素包含 category, label, tooltip, executable_path, type, key, plugin_folder
+    failures: [(插件目录名, 原因)]，单个插件 manifest 损坏时只跳过它自己，其余照常加载
     """
     if plugins_dir is None:
         if getattr(sys, 'frozen', False):
@@ -119,10 +232,11 @@ def scan_plugins(plugins_dir=None):
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
         plugins_dir = os.path.join(base_dir, "plugins")
-        
+
     all_buttons = []
+    failures = []
     if not os.path.exists(plugins_dir):
-        return all_buttons
+        return all_buttons, failures
     for folder in os.listdir(plugins_dir):
         folder_path = os.path.join(plugins_dir, folder)
         if not os.path.isdir(folder_path):
@@ -130,79 +244,29 @@ def scan_plugins(plugins_dir=None):
         json_path = os.path.join(folder_path, "manifest.json")
         if not os.path.exists(json_path):
             continue
-        with open(json_path, "r", encoding="utf-8") as f:
-            info = json.load(f)
-        category = info.get("category", "未分类")
-        
-        # 情况1：新版多按钮格式（存在 "buttons" 字段）
-        if "buttons" in info:
-            for btn in info["buttons"]:
-                label = btn.get("label")
-                exe = btn.get("executable")
-                if not label or not exe:
-                    continue
-                base_path = os.path.join(folder_path, exe)
 
-                # 1. 如果原始路径已存在（比如配置直接给了全名），直接使用
-                if os.path.exists(base_path):
-                    exe_path = base_path
-                else:
-                    # 2. 尝试添加扩展名
-                    base_without_ext = os.path.splitext(base_path)[0]
-                    found = False
-                    for ext in ['.py', '.exe']:
-                        candidate = base_without_ext + ext
-                        if os.path.exists(candidate):
-                            exe_path = candidate
-                            found = True
-                            break
-                    if not found:
-                        print(f"警告：按钮 {label} 的可执行文件不存在（尝试过 {base_without_ext}.py 和 {base_without_ext}.exe）")
-                        continue
-                
+        info, error = _load_manifest(json_path)
+        if error:
+            failures.append((folder, error))
+            continue
 
-                btn_type = btn.get("type")
-                if not btn_type:
-                    # 根据扩展名自动判断
-                    if exe.endswith(".py"):
-                        btn_type = "script"
-                    elif exe.endswith(".json"):
-                        btn_type = "config"
-                    else:
-                        btn_type = "script"
-                # 生成唯一 key（使用插件文件夹名 + 按钮标签，避免重复）
-                key = f"BTN_{folder}_{label}"
-                all_buttons.append({
-                    "category": category,
-                    "label": label,
-                    "tooltip": btn.get("tooltip", label),
-                    "executable_path": exe_path,
-                    "type": btn_type,
-                    "key": key,
-                    "plugin_folder": folder_path,   # 备用，config 类型可能需要
-                    "event": btn.get("event", "")
-                })
-        else:
-            # 情况2：旧版单按钮格式（只有 name, executable）
-            name = info.get("name", folder)
-            exe = info.get("executable")
-            if not exe:
-                continue
-            exe_path = os.path.join(folder_path, exe)
-            if not os.path.exists(exe_path):
-                print(f"警告：插件 {name} 的可执行文件不存在 {exe_path}")
-                continue
-            key = f"BTN_{folder}_{name}"   # 兼容旧 key
-            all_buttons.append({
-                "category": category,
-                "label": name,
-                "tooltip": info.get("description", name),
-                "executable_path": exe_path,
-                "type": "script",   # 旧版只可能是脚本
-                "key": key,
-                "plugin_folder": folder_path
-            })
-    return all_buttons
+        buttons, error = _build_buttons(info, folder, folder_path)
+        if error:
+            failures.append((folder, error))
+            continue
+        all_buttons.extend(buttons)
+    return all_buttons, failures
+
+
+def warn_broken_plugins(failures):
+    """把本批加载失败的插件汇总成一条告警：先写日志，再统一弹一次窗。"""
+    for folder, reason in failures:
+        print(f"⚠️ 插件加载失败，已跳过：{folder} —— {reason}")
+    detail = "\n".join(f"· {folder}：{reason}" for folder, reason in failures)
+    sg.popup(
+        f"以下 {len(failures)} 个插件无法加载，已跳过：\n\n{detail}\n\n其他插件不受影响，可正常使用。",
+        title="插件加载告警",
+    )
 
 # 处理layout
 class BuildLayout:
@@ -440,8 +504,8 @@ def init_program(clear_cache=True):
     if clear_cache:
         clear_folder(cache_dir)
 
-    # 扫描插件
-    buttons = scan_plugins()
+    # 扫描插件（只扫一次；损坏的 manifest 先收集，等窗口建好后再统一告警）
+    buttons, plugin_failures = scan_plugins()
     # if not buttons:
     #     sg.popup_error("未找到任何插件，请检查 plugins 文件夹")
     #     return None  # 初始化失败
@@ -451,7 +515,6 @@ def init_program(clear_cache=True):
     root.withdraw()
 
     # 构建布局并创建主窗口
-    buttons = scan_plugins()
     layout_builder = BuildLayout(buttons)
     layout = layout_builder.build_layout()
     # layout = build_layout(buttons)
@@ -475,6 +538,10 @@ def init_program(clear_cache=True):
 
     # 构建按钮映射
     button_map = {btn["key"]: btn for btn in buttons}
+
+    # 有插件因 manifest 损坏被跳过时，界面就绪后汇总提示一次（只弹一次窗，不是每个插件弹一个）
+    if plugin_failures:
+        warn_broken_plugins(plugin_failures)
 
     return window, button_map, program_dir, root, cache_dir
 

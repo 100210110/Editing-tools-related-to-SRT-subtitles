@@ -29,37 +29,37 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 | 项目 | 内容 | 依据 |
 |---|---|---|
-| 显示名称 | Re工具箱 / 字幕处理工具合集 / 视频后期工具箱 | `软件本体/插件调度主程序.py:280`、`软件本体/config.json:1-4` |
+| 显示名称 | Re工具箱 / 字幕处理工具合集 / 视频后期工具箱 | `软件本体/插件调度主程序.py:344`、`软件本体/config.json:1-4` |
 | 当前版本 | `1.3.0` | `软件本体/config.json:4` |
 | 配置中的更新日期 | `2026-06-17` | `软件本体/config.json:5` |
 | 代码仓库最新提交 | `5ff5463 feat: 窗口size由固定改为自动`（2026-10-22） | `git log` |
 | 作者 | Re（B站、Q群、GitHub 100210110）；配置中还列出 DeepSeek 作为 AI 辅助 | `软件本体/config.json:7-35` |
 | 许可证 | MIT | `Editing-tools-related-to-SRT-subtitles/LICENSE:1-3` |
 | 技术形态 | 本地桌面 GUI，无服务端、无数据库、无网络调用 | 详见第 2、8 节 |
-| 主要入口 | `软件本体/插件调度主程序.py` | `软件本体/插件调度主程序.py:475-590` |
+| 主要入口 | `软件本体/插件调度主程序.py` | `软件本体/插件调度主程序.py:539-654` |
 | 核心源码规模 | 约 2,787 行 Python（`wc -l`，含测试插件与旧注释） | `wc -l` 统计 |
 
 ### 1.3 核心功能与实现状态
 
 | 功能 | 实现位置 | 状态 |
 |---|---|---|
-| 拖拽文件、列表暂存、多选移除、清空 | `软件本体/插件调度主程序.py:68-108`、`214-230` | 已实现 |
-| 自动扫描插件目录、按类别分组生成按钮 | `软件本体/插件调度主程序.py:112-205`、`234-271` | 已实现 |
-| 多按钮插件与按钮级 `event` 路由 | `软件本体/插件调度主程序.py:138-184`、`559-571`；`软件本体/plugins/srt关键词替换/__init__.py:66-78` | 已实现 |
-| 插件导入（zip）、版本比较、解压安装、重启刷新 | `软件本体/load_zip.py:38-165`；`软件本体/插件调度主程序.py:530-552` | 已实现 |
-| 缓存式链式处理与统一导出 | `软件本体/插件调度主程序.py:298-337`、`375-398`、`573-582` | 已实现 |
+| 拖拽文件、列表暂存、多选移除、清空 | `软件本体/插件调度主程序.py:68-108`、`278-294` | 已实现 |
+| 自动扫描插件目录、按类别分组生成按钮 | `软件本体/插件调度主程序.py:112-270`、`298-335` | 已实现 |
+| 多按钮插件与按钮级 `event` 路由 | `软件本体/插件调度主程序.py:161-201`、`623-635`；`软件本体/plugins/srt关键词替换/__init__.py:66-78` | 已实现 |
+| 插件导入（zip）、版本比较、解压安装、重启刷新 | `软件本体/load_zip.py:38-165`；`软件本体/插件调度主程序.py:594-616` | 已实现 |
+| 缓存式链式处理与统一导出 | `软件本体/插件调度主程序.py:362-401`、`439-462`、`637-646` | 已实现 |
 | SRT 文件名作为说话人前缀 | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:13-172` | 已实现（按空行分块、只在首个文本行加、按文件名幂等） |
 | 敏感词删除、错词替换、重复词压缩、删除次数统计（“文明小助手”） | `软件本体/plugins/srt关键词替换/build_automaton.py:56-403`、`srt_keyword_editor.py:32-139` | 已实现（含 `repeat` 压缩与可选分隔）；`regex` 规则未实现，见 6.5、11 节 |
 | 规则可视化编辑（PyQt5 树形编辑器） | `软件本体/plugins/srt关键词替换/subtitle_rule_editor.py:19-857` | 已实现 |
 | ASS 字幕转透明底 MOV（FFmpeg + qtrle/argb） | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:62-189` | 代码已实现；FFmpeg 未随仓库提供，未做运行验证 |
 | 测试插件（弹窗/报错） | `软件本体/plugins/测试插件/__init__.py:14-78` | 调试用途，非生产功能 |
-| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 5 个测试模块，85 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存 / SRT 前缀回归，**无 CI**；见 `CHANGELOG.md` |
+| 自动化测试 / CI | `tests/`（pytest，`conftest.py` + 6 个测试模块，101 项用例）；`requirements-dev.txt` | 2026-10-22 已建立测试框架并固化安装器 / repeat / pkl 缓存 / SRT 前缀 / 插件扫描回归，**无 CI**；见 `CHANGELOG.md` |
 
 ### 1.4 业务背景与使用方式
 
 - 典型用户是视频剪辑/字幕后期人员：把一集视频对应的 SRT 文件拖入工具，先做敏感词清洗或错词替换，再按文件名批量加说话人前缀，最后导出。
 - 每个插件只做一件事，主程序不关心字幕内容，只负责“收集文件 → 调用插件 → 接收处理结果 → 更新文件列表”。
-- 处理结果默认先写 `cache/output`，因此可以继续点击其他插件做链式处理；最终通过“导出”移动到 `output/`（`软件本体/插件调度主程序.py:573-582`）。
+- 处理结果默认先写 `cache/output`，因此可以继续点击其他插件做链式处理；最终通过“导出”移动到 `output/`（`软件本体/插件调度主程序.py:637-646`）。
 - ASS 插件面向需要把字幕渲染成带 Alpha 通道 MOV 的后期流程，输出格式为 QuickTime Animation（`qtrle`）+ `argb`（`软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:139-149`）。
 
 ### 1.5 工作区组成与关系
@@ -104,11 +104,11 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 打包 | PyInstaller | 6.20.0 | 生成单文件 exe | `requirements-dev.txt`、`打包exe指令.txt:1` |
 | 媒体处理 | FFmpeg（外部可执行文件） | 版本未知 | ASS 渲染透明底视频 | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`、`137-149` |
 | 标准库 | `subprocess`、`zipfile`、`pickle`、`logging`、`json`、`re`、`shutil`、`io` | Python 3.11 自带 | 进程、安装、缓存、日志、解析 | 各模块 import |
-| 系统能力 | `notepad.exe`、`explorer.exe`、`CREATE_NEW_CONSOLE` | Windows | 打开配置、打开导出目录、FFmpeg 子进程 | `软件本体/插件调度主程序.py:568`、`580`；`ass转码透明底视频.py:156-164` |
+| 系统能力 | `notepad.exe`、`explorer.exe`、`CREATE_NEW_CONSOLE` | Windows | 打开配置、打开导出目录、FFmpeg 子进程 | `软件本体/插件调度主程序.py:632`、`644`；`ass转码透明底视频.py:156-164` |
 
 ### 2.2 运行时要求
 
-- **操作系统**：Windows。代码使用了 `notepad.exe`、`explorer.exe`、`subprocess.CREATE_NEW_CONSOLE`、`plugins\\{plugin_id}` 等 Windows 专有写法（`软件本体/插件调度主程序.py:568-580`、`load_zip.py:77`、`ass转码透明底视频.py:156-164`）。
+- **操作系统**：Windows。代码使用了 `notepad.exe`、`explorer.exe`、`subprocess.CREATE_NEW_CONSOLE`、`plugins\\{plugin_id}` 等 Windows 专有写法（`软件本体/插件调度主程序.py:632-644`、`load_zip.py:77`、`ass转码透明底视频.py:156-164`）。
 - **Python**：开发/打包建议 Python 3.11.x；代码使用 `match/case`（3.10+）与 `sys.stdin.reconfigure`（3.7+），因此在 3.10 以下无法运行。
 - **开发依赖**：以实际 import 为准，runtime 为 PySimpleGUI、tkinterdnd2、pyahocorasick、pyass、packaging、PyQt5；test/build 为 pytest、PyInstaller。直接依赖的固定版本见 `requirements.txt` / `requirements-dev.txt`。
 - **外部二进制**：ASS 插件运行时必须存在 FFmpeg（见 8.5）；仓库内 `plugins/ass转码透明底视频/ffmpeg/bin/` 为空目录。
@@ -169,13 +169,13 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 | 路径 | 职责 | 关键依据 |
 |---|---|---|
-| `软件本体/插件调度主程序.py` | 唯一主入口；构建 UI、扫描插件、维护文件列表、启动插件子进程、导入插件、导出文件 | `112-205`、`298-372`、`423-590` |
+| `软件本体/插件调度主程序.py` | 唯一主入口；构建 UI、扫描插件、维护文件列表、启动插件子进程、导入插件、导出文件 | `112-270`、`362-436`、`487-654` |
 | `软件本体/load_zip.py` | 插件安装器类 `PluginInstaller`；从 zip 根目录读取 `manifest.json`，按版本决定是否安装，解压到 `plugins/<plugin_id>/` | `38-165` |
 | `软件本体/config.json` | 主程序名称、版本、更新日期、作者信息；主程序只读取 `version` 与 `update_date` | `插件调度主程序.py:50-59` |
-| `软件本体/cache/output/` | 插件输出暂存；**首次启动**时清空，插件导入后的窗口重建不清空；链式处理的载体 | `插件调度主程序.py:307-310`、`440-441` |
+| `软件本体/cache/output/` | 插件输出暂存；**首次启动**时清空，插件导入后的窗口重建不清空；链式处理的载体 | `插件调度主程序.py:307-310`、`504-505` |
 | `软件本体/cache/temp/` | 插件的临时目录（ASS 临时字幕、FFmpeg `-report` 日志等） | `插件调度主程序.py:307-310`；`ass转码透明底视频.py:126-133` |
-| `软件本体/output/` | 最终导出目录；由“导出/导出并打开位置”按钮写入 | `插件调度主程序.py:573-582` |
-| `plugins/<插件目录>/manifest.json` | 插件元数据与按钮声明；主程序扫描的唯一入口条件 | `插件调度主程序.py:130-204` |
+| `软件本体/output/` | 最终导出目录；由“导出/导出并打开位置”按钮写入 | `插件调度主程序.py:637-646` |
+| `plugins/<插件目录>/manifest.json` | 插件元数据与按钮声明；主程序扫描的唯一入口条件 | `插件调度主程序.py:112-221` |
 | `plugins/srt关键词替换/*` | 规则驱动的字幕清洗插件；含 PyQt5 规则编辑器 | 见 5.4、5.5 |
 | `plugins/srt加前缀/*` | 最简单的插件样板：读 JSON、按空行分块处理 SRT、写缓存、返回 JSON | `自动给srt加前缀.py:102-172` |
 | `plugins/ass转码透明底视频/*` | 用 pyass 取时长、用 FFmpeg 渲染透明 MOV | 见 5.7 |
@@ -269,22 +269,24 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 ### 4.4 插件发现规则
 
-`scan_plugins()` 的逻辑（`软件本体/插件调度主程序.py:112-205`）：
+`scan_plugins()` 的逻辑（`软件本体/插件调度主程序.py:112-270`，拆成 `_load_manifest` / `_resolve_executable` / `_build_buttons` / `scan_plugins` / `warn_broken_plugins` 五个函数）：
 
 1. 以程序目录下的 `plugins/` 为根（开发环境取 `__file__` 目录，打包后取 `sys.executable` 目录）。
-2. 只扫描一级子目录；子目录必须存在 `manifest.json` 才会被识别。
-3. **新版多按钮格式**：`manifest.json` 含 `buttons` 数组；每个按钮读取 `label`、`executable`、`type`、`event`、`tooltip`。
-4. 可执行文件解析：先尝试 `executable` 原值；不存在则依次尝试 `.py`、`.exe` 后缀（`146-161`）。
-5. **旧版单按钮格式**：没有 `buttons` 时读取 `name`、`executable`、`description`，类型固定为 `script`（`186-204`）。
-6. 生成唯一 key：`BTN_{插件目录名}_{按钮标签}`（`174`、`195`）。
-7. `BuildLayout.build_middle()` 按 `(category, plugin_folder)` 分组，先输出类别标题，再输出该插件的按钮行；行数超过 7 时启用垂直滚动（`234-271`）。
+2. 只扫描一级子目录；子目录必须存在 `manifest.json` 才会被识别（没有 manifest 的目录**静默忽略**，不算故障）。
+3. **manifest 容错**：`_load_manifest()`（`112-141`）负责读取与粗校验，逐项返回 `(info, None)` 或 `(None, 原因)`——JSON 语法错误、顶层不是对象、缺 `name`、既无 `executable` 也无 `buttons`、`buttons` 不是数组，都只跳过该插件，不中断扫描（2026-10-22 修复，见 §11 第 13 条）。
+4. **新版多按钮格式**：`manifest.json` 含 `buttons` 数组；每个按钮读取 `label`、`executable`、`type`、`event`、`tooltip`（`_build_buttons` `161-201`）。任一按钮缺 `label`/`executable`、`buttons` 为空、存在非对象条目时，整个插件按故障跳过。
+5. 可执行文件解析：先尝试 `executable` 原值；不存在则依次尝试 `.py`、`.exe` 后缀（`_resolve_executable` `143-158`）。解析不到时**整个插件跳过并记录原因**（旧实现只跳过该按钮并 print，`srt关键词替换` 这类多按钮插件会只掉一半，容易让人以为插件正常）。
+6. **旧版单按钮格式**：没有 `buttons` 时读取 `name`、`executable`、`description`，类型固定为 `script`（`206-220`）。
+7. 生成唯一 key：`BTN_{插件目录名}_{按钮标签}`（`200`）、`BTN_{插件目录名}_{name}`（`219`）。
+8. `scan_plugins()` 返回 `(buttons, failures)`，`failures` 是 `[(插件目录名, 原因)]`；`warn_broken_plugins()`（`261-270`）把本批故障逐条写日志后**汇总弹一次窗**（不是每个插件弹一次）。
+9. `BuildLayout.build_middle()` 按 `(category, plugin_folder)` 分组，先输出类别标题，再输出该插件的按钮行；行数超过 7 时启用垂直滚动（`298-336`）。
 
-注意：`scan_plugins()` 在 `init_program()` 中被调用了两次（`438`、`448`），属于重复扫描；当前不影响功能，但会多一次磁盘/JSON 读取。
+`scan_plugins()` 在 `init_program()` 中**只调用一次**（`508`），窗口建好后若 `failures` 非空再调用 `warn_broken_plugins()`（`544`）；插件导入后的重建走同一路径，因此会再提示一次。
 
 ### 4.5 进程边界与通信
 
 - 每个插件是**独立子进程**，不是 Python 模块级调用；主程序不 import 插件代码。
-- 主程序把请求 JSON 写入子进程 stdin，关闭 stdin 后读取 stdout/stderr（`软件本体/插件调度主程序.py:330-337`）。
+- 主程序把请求 JSON 写入子进程 stdin，关闭 stdin 后读取 stdout/stderr（`软件本体/插件调度主程序.py:394-401`）。
 - 插件约定：**stdout 只输出一个 JSON 响应**；日志、进度、异常栈写 stderr。
 - 主程序不设置超时；`proc.communicate(json_str)` 会一直阻塞到插件退出（`337`）。
 - 开发环境（未 `sys.frozen`）且插件是 `.py`：用 `sys.executable` 启动；打包后：直接执行插件 exe（`323-328`）。
@@ -306,10 +308,10 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 ### 4.7 链式处理模型
 
 1. 初始 `FILE_LIST` 保存用户拖入的原始文件路径。
-2. 插件处理成功后，把**输出文件路径**放进 `completed_output_lists`；主程序用它整体替换 `FILE_LIST`（`软件本体/插件调度主程序.py:356-358`）。
+2. 插件处理成功后，把**输出文件路径**放进 `completed_output_lists`；主程序用它整体替换 `FILE_LIST`（`软件本体/插件调度主程序.py:420-422`）。
 3. 下一次点击插件时，处理对象已经是 `cache/output` 中的文件。
 4. 多个 SRT 插件都以“原 basename”写到同一个 `cache/output`，因此后一个插件会覆盖前一个插件的同名输出；但内容是在前一步输出上继续处理的，效果上形成“原地链式变换”。
-5. 导出时 `move_all_files()` 把 `cache/output` 内文件移动到 `output/`，同名文件追加 `_1`、`_2` 等后缀（`375-387`），然后清空 `FILE_LIST`。
+5. 导出时 `move_all_files()` 把 `cache/output` 内文件移动到 `output/`，同名文件追加 `_1`、`_2` 等后缀（`439-451`），然后清空 `FILE_LIST`。
 
 该模型简单有效，但**不保留每一步中间文件**，且不同目录下的同名输入会互相覆盖（详见 11 节）。
 
@@ -355,8 +357,8 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 3 | 若 `type == "config"`，用 `notepad.exe` 打开配置文件 | `565-569` |
 | 4 | 准备 `cache/output`、`cache/temp`，构造请求 JSON | `302-320` |
 | 5 | 根据开发/打包环境选择 `python plugin.py` 或 `plugin.exe` | `323-328` |
-| 6 | `subprocess.Popen(..., stdin=PIPE, stdout=PIPE, stderr=PIPE, encoding='utf-8')`，同步 `communicate` | `330-337` |
-| 7 | 返回码为 0：解析 stdout JSON；有 `popup` 则弹窗；有 `completed_output_lists` 则替换 `FILE_LIST` 并刷新 | `340-361` |
+| 6 | `subprocess.Popen(..., stdin=PIPE, stdout=PIPE, stderr=PIPE, encoding='utf-8')`，同步 `communicate` | `394-401` |
+| 7 | 返回码为 0：解析 stdout JSON；有 `popup` 则弹窗；有 `completed_output_lists` 则替换 `FILE_LIST` 并刷新 | `404-425` |
 | 8 | 返回码非 0：把 stderr 作为错误弹窗（超过 500 字符或 10 行则用滚动窗口） | `362-372` |
 
 请求 JSON 的字段见 7.2；响应 JSON 的字段见 7.3。主程序对 stdout 的 JSON 解析失败时只打印日志，不会弹窗（`359-361`）。
@@ -451,7 +453,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 **插件导入**（`软件本体/load_zip.py`）：
 
-1. 主程序“导入插件”把 `FILE_LIST` 传给 `import_plugin_list()`（`软件本体/插件调度主程序.py:530-533`）。
+1. 主程序“导入插件”把 `FILE_LIST` 传给 `import_plugin_list()`（`软件本体/插件调度主程序.py:594-597`）。
 2. `PluginInstaller.load_zip_json()` 从 zip 根读取 `manifest.json`，要求 `name`、`version`，`plugin_id` 缺省时使用 `name`；安装路径为 `plugins/<plugin_id>/`（`66-81`）。
 3. `check_version_and_install()` 读取已安装版本的 manifest，用 `packaging.version.parse` 比较：
    - 未安装 → 直接安装；
@@ -465,7 +467,7 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 - “导出”：`move_all_files(cache/output, output)`，清空 `FILE_LIST`（`573-576`）。
 - “导出并打开位置”：同上，再用 `explorer` 打开 `output/`（`578-582`）。
-- 同名目标文件用 `_1`、`_2` 递增后缀避免覆盖（`375-387`）。
+- 同名目标文件用 `_1`、`_2` 递增后缀避免覆盖（`439-451`）。
 
 ---
 
@@ -512,11 +514,11 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 字段 | 类型 | 必填 | 说明 | 依据 |
 |---|---|---|---|---|
 | `name` | string | 是 | 插件名 | 各 manifest |
-| `category` | string | 否 | 主界面分组标题，默认“未分类” | `插件调度主程序.py:135` |
+| `category` | string | 否 | 主界面分组标题，默认“未分类” | `插件调度主程序.py:166` |
 | `version` | string | 是（导入时） | 版本比较 | `load_zip.py:72`、`97-115` |
 | `description` | string | 否 | 插件描述 | `load_zip.py:73` |
 | `debug` | bool | 否 | 控制 `plugin_info.log` 是否写入 | `common.py:54-59` |
-| `buttons` | array | 是（新版） | 按钮列表 | `插件调度主程序.py:138` |
+| `buttons` | array | 是（新版） | 按钮列表 | `插件调度主程序.py:169` |
 | `buttons[].label` | string | 是 | 按钮文字，也参与 key | `140-144` |
 | `buttons[].executable` | string | 是 | 脚本/exe 文件名（可省略扩展名） | `144-161` |
 | `buttons[].type` | string | 否 | `script` 或 `config`；缺省按扩展名推断 | `164-172` |
@@ -682,7 +684,7 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 ### 7.2 插件请求接口（宿主 → 插件）
 
 - 传输：子进程标准输入，UTF-8 文本，单个 JSON 对象后关闭 stdin。
-- 构造位置：`软件本体/插件调度主程序.py:312-320`。
+- 构造位置：`软件本体/插件调度主程序.py:376-384`。
 
 | 字段 | 必需 | 来源 | 说明 |
 |---|---|---|---|
@@ -694,7 +696,7 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 ### 7.3 插件响应接口（插件 → 宿主）
 
 - 传输：子进程标准输出，单个 JSON 对象；日志必须写 stderr。
-- 解析位置：`软件本体/插件调度主程序.py:340-361`。
+- 解析位置：`软件本体/插件调度主程序.py:404-425`。
 
 | 字段 | 类型 | 必需 | 宿主行为 |
 |---|---|---|---|
@@ -740,10 +742,10 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 |---|---|---|---|
 | `get_path(relative_path=None, use_program_dir=True)` | `插件调度主程序.py:22-48`、`load_zip.py:10-36`、`common.py:8-34`、`ass转码透明底视频.py:18-44` | 统一路径解析 | 相对路径 → 绝对路径 |
 | `parse_dropped_files(data)` | `插件调度主程序.py:68-79` | 解析 TkDND 拖放数据 | 原始字符串 → 路径列表 |
-| `scan_plugins(plugins_dir=None)` | `插件调度主程序.py:112-205` | 扫描插件、解析 manifest | 插件目录 → 按钮信息列表 |
-| `BuildLayout.build_layout()` | `插件调度主程序.py:208-295` | 组装主窗口布局 | 按钮列表 → PySimpleGUI layout |
-| `run_script_plugin(btn_info, window)` | `插件调度主程序.py:298-372` | 启动插件并处理响应 | 按钮信息 → 更新文件列表/弹窗 |
-| `move_all_files(src_dir, dst_dir)` | `插件调度主程序.py:375-387` | 导出并处理重名 | 目录 → 目录 |
+| `scan_plugins(plugins_dir=None)` | `插件调度主程序.py:112-270` | 扫描插件、解析 manifest | 插件目录 → 按钮信息列表 |
+| `BuildLayout.build_layout()` | `插件调度主程序.py:272-359` | 组装主窗口布局 | 按钮列表 → PySimpleGUI layout |
+| `run_script_plugin(btn_info, window)` | `插件调度主程序.py:362-436` | 启动插件并处理响应 | 按钮信息 → 更新文件列表/弹窗 |
+| `move_all_files(src_dir, dst_dir)` | `插件调度主程序.py:439-451` | 导出并处理重名 | 目录 → 目录 |
 | `import_plugin_list(zip_path_list)` | `load_zip.py:148-165` | 批量导入插件 | zip 列表 → `{success_list, failed_files}` |
 | `SubtitleRuleProcessor.load_rules(force_rebuild=False)` | `build_automaton.py:280-294` | 加载/构建规则与自动机 | 无 → 初始化内部状态 |
 | `SubtitleRuleProcessor.process_text(text)` | `build_automaton.py:212-233` | 删除/替换文本 | 原始文本 → 清理文本 |
@@ -831,7 +833,7 @@ plugins/<dir>/manifest.json ──1──> 若干按钮（buttons[]）
 - `plugin_error.log` 始终记录 ERROR；`plugin_info.log` 仅在 manifest 的 `debug=true` 时记录 DEBUG 及以上（`common.py:54-59`、`78-86`）。
 - 当前 `srt关键词替换/manifest.json:6` 设置了 `"debug": true`。
 - 其他插件主要用 `print(..., file=sys.stderr)`，由主程序收集后显示/记录。
-- 主程序的“日志”控件通过 `reroute_stdout=True` 接收自身 stdout（`插件调度主程序.py:228`）。
+- 主程序的“日志”控件通过 `reroute_stdout=True` 接收自身 stdout（`插件调度主程序.py:292`）。
 
 ### 8.5 外部依赖：FFmpeg
 
@@ -906,7 +908,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 - 命令中的版本名仍是 **v1.1.0**，与当前 `config.json` 的 1.3.0 不一致；实际打包前应更新 `--name`。
 - 该命令假定在 `软件本体/` 目录内执行（`icon.ico` 与 `插件调度主程序.py` 为相对路径）。
-- `--windowed` 会隐藏控制台；主程序对 `sys.stdin/stdout/stderr` 做了 `None` 保护并重定向到 GUI 日志（`插件调度主程序.py:13-19`、`228`）。
+- `--windowed` 会隐藏控制台；主程序对 `sys.stdin/stdout/stderr` 做了 `None` 保护并重定向到 GUI 日志（`插件调度主程序.py:13-19`、`292`）。
 
 ### 9.4 构建插件
 
@@ -936,9 +938,9 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 
 **当前状态（2026-10-22）**：
 
-- 已建立 `tests/`（pytest，85 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **84 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
+- 已建立 `tests/`（pytest，101 项用例，`pytest==9.1.1` 记录在 `requirements-dev.txt`），运行基准 `pytest tests/`，当前 **100 passed / 1 skipped**（SKIP 为环境无法模拟目录不可写）。
 - `tests/conftest.py` 通过 `importlib` 按路径加载被测模块以兼容中文目录；`load_zip` 的 `get_path` 与弹窗在 fixture 内 monkeypatch，规则 JSON/pkl 全部限制在 `tmp_path`，因此测试不读写仓库内运行产物。
-- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，25 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
+- 覆盖范围：`test_installer.py`（安装器三态与路径越界）、`test_installer_failures.py`（真实清理/解压失败）、`test_repeat.py`（repeat 语义与真实规则回归）、`test_cache.py`（pkl 缓存校验链）、`test_srt_prefix.py`（前缀插件的块解析、幂等与 `total`/`skipped`/`failed` 计数，25 项；模块在 import 期会重绑 `sys.std*`，fixture 用占位流加载后再还原）、`test_scan_plugins.py`（manifest 解析容错、`scan_plugins` 跳过与告警汇总，16 项；用 `FakeSG` 桩顶掉 PySimpleGUI/tkinterdnd2 后按路径加载主程序模块）。插件导入、repeat 与主程序缓存的 **GUI/真机手工冒烟**已于 2026-10-22 由作者在真机执行通过（插件导入三态与重装询问、规则编辑器 + 真实 `subtitle_rules.pkl` 命中/失效、主程序连续处理与修改 JSON 后自动重建），`TODO.md`「测试补强」已随之清空。
 - 仍无 CI 配置；上述手工入口照旧存在。
 
 ### 9.6 建议的冒烟测试清单
@@ -947,6 +949,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 |---|---|---|
 | 启动 | 开发模式启动主程序 | 窗口出现，底部显示 1.3.0，插件按钮按类别分组 |
 | 插件发现 | 查看 `srt加前缀`、`srt关键词替换`、`测试插件`、`ass转码透明底视频` | 四个插件均出现（ass 插件即使无 FFmpeg 也应能被扫描） |
+| 插件容错 | 在 `plugins/` 下放一个 `manifest.json` 写错的目录（JSON 语法错误 / 缺 `name` / `executable` 指向不存在的文件），再启动 | 其他插件按钮照常出现、主程序不崩溃；启动后**只弹一次**窗列出全部失败插件与原因；日志里有对应的“⚠️ 插件加载失败，已跳过”行 |
 | 拖拽 | 拖入 1 个 SRT + 路径含空格的 SRT | 列表出现两项且路径完整 |
 | 前缀 | 点击“srt加前缀”后导出 | 字幕文本前有 `文件名：`；多行字幕只在第一行加；对同一批再点一次不叠加（`total`/`processed`/`skipped`/`failed` 与日志中的“已带当前文件名前缀”一致） |
 | 关键词 | 点击“srt关键词替换” | 敏感词被删，弹窗显示统计 |
@@ -979,7 +982,7 @@ pyinstaller --onefile --windowed -i "icon.ico" \
 |---|---|---|
 | 文件/目录命名 | 插件目录、脚本大量使用中文名称；主程序文件为中文 | `软件本体/` 目录树 |
 | 函数/变量 | `snake_case`（如 `scan_plugins`、`run_script_plugin`、`pending_file_lists`） | 主程序、插件源码 |
-| 类名 | `PascalCase`（`PluginInstaller`、`SubtitleRuleProcessor`、`BuildLayout`） | `load_zip.py:38`、`build_automaton.py:56`、`插件调度主程序.py:208` |
+| 类名 | `PascalCase`（`PluginInstaller`、`SubtitleRuleProcessor`、`BuildLayout`） | `load_zip.py:38`、`build_automaton.py:56`、`插件调度主程序.py:272` |
 | 常量 | 全大写（`FILE_LIST`、`VISION`、`COFFEE_QR_BASE64`） | 主程序 |
 | 事件名 | 小写下划线（`main`、`test2`、`subtitle_rule_editor`） | manifest 与 `__init__.py` |
 | 私有方法 | 前导下划线（`_get_json`、`_build_automaton`、`_resolve_overlaps`） | `build_automaton.py` |
@@ -1111,11 +1114,11 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 中 | **README 与当前实现不一致**：README 说 `config.json` 是删改词配置、格式错误会被覆盖；实际规则在 `subtitle_rules.json`，且 `config.json` 只用于版本/作者（已修复，见 CHANGELOG [2026-10-22]） | `Editing-tools-related-to-SRT-subtitles/README.md:14-20`（行号已随 2026-10-22 重写失效）；`软件本体/plugins/srt关键词替换/build_automaton.py:58-59` | 用户按 README 改错文件，规则不会生效。建议更新 README，补充规则编辑器、导出、导入插件、ASS 插件 |
 | 中 | **ASS 插件缺少 FFmpeg**：代码要求 `ffmpeg/bin/ffmpeg.exe`，仓库该目录为空，发布包中也未发现 FFmpeg | `软件本体/plugins/ass转码透明底视频/ass转码透明底视频.py:69`；目录清单 | 源码环境下 ASS 功能不可用。建议文档说明外部依赖，或在发布包中附带并校验版本 |
 | 中 | **ASS 插件未出现在现有发布产物** | `v1.x/plugins` 与 `发布zip/` 清单均无该插件 | 功能是否对用户发布、如何分发**未确认**；接手时需确认发布策略 |
-| 中 | **主界面在插件运行期间阻塞**：`proc.communicate()` 在 UI 事件循环内同步等待，无超时、无取消、无进度 | `软件本体/插件调度主程序.py:330-337`、`485-587` | ASS 渲染或大批量 SRT 时窗口“无响应”。建议改为线程/进程异步 + 进度回传，或至少加忙碌提示 |
+| 中 | **主界面在插件运行期间阻塞**：`proc.communicate()` 在 UI 事件循环内同步等待，无超时、无取消、无进度 | `软件本体/插件调度主程序.py:394-401`、`549-651` | ASS 渲染或大批量 SRT 时窗口“无响应”。建议改为线程/进程异步 + 进度回传，或至少加忙碌提示 |
 | 中 | **SRT 前缀插件假设固定四行结构**：`range(2, len(lines), 4)`，多行字幕会错位；重复运行会叠加前缀；`processed` 统计的是输入数而非成功数（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/plugins/srt加前缀/自动给srt加前缀.py:19-20`、`50-74`（行号已随 2026-10-22 重写失效，现状见 5.6） | 真实字幕（多行、样式标签、缺空行）可能被破坏。建议按空行分块解析，并记录成功数 |
-| 中 | **同名文件在缓存中互相覆盖**：两个插件都写 `cache/output/<basename>`；不同目录的同名 SRT 会覆盖 | `srt_keyword_editor.py:104-108`；`自动给srt加前缀.py:55-61`；`插件调度主程序.py:375-387` | 链式处理方便，但批量处理多目录时可能丢结果。建议保留相对路径或加哈希前缀 |
-| 低 | **损坏的 manifest 会让主程序启动崩溃**：`scan_plugins` 直接 `json.load`，无 try/except；`init_program` 也没有捕获 | `软件本体/插件调度主程序.py:130-134`、`438-452` | 一个插件配置写错会阻止整个工具启动。建议逐个 manifest 捕获异常并跳过/提示 |
-| 低 | **`scan_plugins()` 重复调用** | `软件本体/插件调度主程序.py:438`、`448` | 多一次扫描，当前无功能影响；可删除一次 |
+| 中 | **同名文件在缓存中互相覆盖**：两个插件都写 `cache/output/<basename>`；不同目录的同名 SRT 会覆盖 | `srt_keyword_editor.py:104-108`；`自动给srt加前缀.py:55-61`；`插件调度主程序.py:439-451` | 链式处理方便，但批量处理多目录时可能丢结果。建议保留相对路径或加哈希前缀 |
+| 低 | **损坏的 manifest 会让主程序启动崩溃**：`scan_plugins` 直接 `json.load`，无 try/except；`init_program` 也没有捕获（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:118-120`（`json.load` 已包在 `_load_manifest` 的 try/except 内）、`508`（单次扫描）、`544`（汇总告警）；`tests/test_scan_plugins.py` | 一个插件配置写错会阻止整个工具启动。建议逐个 manifest 捕获异常并跳过/提示 |
+| 低 | **`scan_plugins()` 重复调用**（已修复，见 CHANGELOG [2026-10-22]） | `软件本体/插件调度主程序.py:508` | 多一次扫描，当前无功能影响；可删除一次 |
 | 低 | **最长匹配只在同起点时成立**：排序后线性过滤，起点更早的短词可能先占位 | `软件本体/plugins/srt关键词替换/build_automaton.py:175-191` | 某些重叠词删除/替换结果不符合“长词优先”直觉。建议用区间调度/优先队列选择全局最优 |
 | 低 | **不同节点的相同 `source` 后者覆盖前者**，编辑器只防单 item 内重复 | `build_automaton.py:133-138`；`subtitle_rule_editor.py:108-115` | 规则冲突不易发现。建议保存时做全局冲突检测 |
 | 低 | **打包后“新建”规则文件路径可能指向只读临时目录**：`os.path.dirname(__file__)` | `subtitle_rule_editor.py:214-218` | 单文件 exe 下 `__file__` 位于 `_MEIPASS`，可能无法保存；**未在打包环境验证** |
@@ -1145,7 +1148,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 | 阶段 | 阅读对象 | 目标 | 预计 |
 |---|---|---|---|
 | 0. 建立全局印象 | `Editing-tools-related-to-SRT-subtitles/README.md`、`软件本体/config.json`、第 1-4 节 | 知道工具做什么、工作区哪些是源码/产物 | 10 分钟 |
-| 1. 主程序骨架 | `软件本体/插件调度主程序.py:22-48`（路径）、`112-205`（插件扫描）、`298-372`（调度）、`423-590`（初始化/事件循环） | 理解 UI 与插件如何连接 | 30 分钟 |
+| 1. 主程序骨架 | `软件本体/插件调度主程序.py:22-48`（路径）、`112-270`（插件扫描）、`362-436`（调度）、`487-654`（初始化/事件循环） | 理解 UI 与插件如何连接 | 30 分钟 |
 | 2. 最简插件样板 | `软件本体/plugins/srt加前缀/manifest.json`、`自动给srt加前缀.py:1-79` | 掌握 stdin/stdout JSON 协议 | 10 分钟 |
 | 3. 关键词插件（核心） | `plugins/srt关键词替换/__init__.py` → `common.py` → `build_automaton.py:56-298` → `srt_keyword_editor.py:63-139` | 理解规则解析、AC 自动机、缓存、统计 | 60-90 分钟 |
 | 4. 规则编辑器（按需） | `plugins/srt关键词替换/subtitle_rule_editor.py:19-153`（对话框）、`156-345`（树）、`482-754`（增删改）、`852-857`（入口） | 理解规则 JSON 的可视化维护 | 45 分钟 |
@@ -1168,7 +1171,7 @@ git -C "Editing-tools-related-to-SRT-subtitles" diff --cached --quiet
 
 如果只能读 5 个文件，建议按顺序：
 
-1. `软件本体/插件调度主程序.py`（尤其 112-205、298-372、423-590）
+1. `软件本体/插件调度主程序.py`（尤其 112-270、362-436、487-654）
 2. `软件本体/plugins/srt加前缀/自动给srt加前缀.py`（协议样板）
 3. `软件本体/plugins/srt关键词替换/build_automaton.py`（核心算法）
 4. `软件本体/plugins/srt关键词替换/srt_keyword_editor.py`（批处理流程）

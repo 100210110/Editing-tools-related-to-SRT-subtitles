@@ -104,8 +104,19 @@
 - `tests/test_srt_prefix.py` 相应增加 3 项：路径不存在计 `failed`、同名目录冒充 `.srt` 计 `failed`、不存在的非 `.srt` 仍计 `skipped`（非 SRT 的分类不受路径是否存在影响）。
 - 验证结论（2026-10-22）：`pytest tests/test_srt_prefix.py -q` 25 passed；全量 `pytest tests/` 为 **84 passed / 1 skipped**；`py_compile` 通过。
 
+**#13 容错损坏的插件 manifest（同时清掉 #14 的重复扫描）**
+
+- `scan_plugins()` 拆成五个函数：`_load_manifest()`（读取 + 粗校验）、`_resolve_executable()`（原值 → `.py` → `.exe` 的解析）、`_build_buttons()`（两种 manifest 格式转按钮）、`scan_plugins()`、`warn_broken_plugins()`（汇总告警）。返回值从 `buttons` 变为 `(buttons, failures)`，`failures` 是 `[(插件目录名, 原因)]`。
+- 容错范围（单个插件出问题只跳过它自己，其余照常加载）：JSON 语法错误、顶层不是对象、缺 `name`、既无 `executable` 也无 `buttons`、`buttons` 不是数组/为空/含非对象条目、按钮缺 `label` 或 `executable`、声明的可执行文件找不到。`manifest.json` 根本不存在的目录仍按原样**静默忽略**（那是“不是插件”，不是“插件坏了”）。
+- 告警方式：`init_program()` 建好窗口、刷新完列表后调用 `warn_broken_plugins()`——逐条打印“⚠️ 插件加载失败，已跳过：<目录> —— <原因>”进日志面板，然后**只弹一次** `sg.popup`，标题“插件加载告警”，正文按 `目录：原因` 列全。不再每个失败插件弹一个窗。
+- **同时清理 #14**：`init_program()` 里重复的两次 `scan_plugins()` 合并为一次（原先第一次的返回值从未被使用），因此告警天然只出现一次；`#14` 两条待办（删除重复调用、确认按钮数与分组不变）均已满足并归档。
+- 行为变化（有意为之，记录在案）：① 多按钮插件里**任一**按钮的可执行文件缺失，整个插件跳过（旧行为只跳过该按钮并 print，会让人误以为插件正常）；② `name` 变为强制字段（旧代码在旧格式下会用目录名兜底），与 `load_zip.py` 安装时的要求对齐。
+- 新增 `tests/test_scan_plugins.py`（16 项）：`_load_manifest` 的正常/语法错误/缺 `name`/缺 `executable` 与 `buttons`/非对象/`buttons` 非数组，`_resolve_executable` 的扩展名补全，`scan_plugins` 的正常、单坏、可执行文件缺失、按钮级缺失、混合 2 正常 + 3 坏、无 manifest 目录静默、目录不存在，以及 `warn_broken_plugins` 只弹一次窗且日志逐条。用 `FakeSG` 桩顶掉 PySimpleGUI/tkinterdnd2 后按路径加载主程序模块。
+- 验证结论（2026-10-22）：`pytest tests/test_scan_plugins.py -q` 16 passed；全量 `pytest tests/` 为 **100 passed / 1 skipped**；`py_compile` 通过。另在临时目录搭了“1 正常 + JSON 坏 + 可执行文件缺”的 plugins 目录，桩化 GUI 后跑真实 `init_program()`：正常插件 1 个按钮、窗口创建 1 次、弹窗 1 次且正文列出两条、日志两行；再跑一次 `init_program(clear_cache=False)` 复现“导入插件后重建”，同样只弹一次。用真实 `软件本体/plugins` 扫描得 6 个按钮、0 失败，与改动前一致。**未在真机上点按钮验证弹窗外观**（§9.6「插件容错」项仍需人工确认）。
+
 ### 说明
 
+- 2026-10-22 完成 #13（容错损坏的插件 manifest）并顺带清掉 #14（重复扫描），详见上文「修复」节末段。遗留：① 告警弹窗在“导入插件后重建窗口”时会**再弹一次**（同一批失败项每次都汇总提示，未做“本会话已提示过”的去重）；② 多按钮插件只要一个按钮的 `executable` 缺失就整插件跳过，若将来出现“按钮可选”的需求需再调整；③ `name` 改为强制字段，手工拷贝进 `plugins/` 且没有 `name` 的老插件会被跳过（`load_zip.py` 安装的插件都带 `name`，正常不会遇到）。
 - TODO 初始化后已完成 #1、#2、#3、#5（插件安装路径穿越、安装失败仍报成功、repeat 规则、pkl 缓存校验与入库）；其余 20 项待办不变。
 - 2026-10-22 补充 pytest 测试框架与 5 项回归固化（见上文「测试」节）；同日作者在真机完成 3 项 GUI/主程序手工冒烟并全部通过，「可选增强 / 测试补强」整节已归档，`TODO.md` 该分类清空。
 - 2026-10-22 完成手工冒烟新增的 #25（无插件变动时不再重建主窗口），详见上文「修复」节末段。遗留：“重启刷新”按钮仍会清空 `cache/output`（按重启语义保留现状）；`import_plugin_list` 不按扩展名过滤、SRT 会被计入失败列表，未在本次处理。
