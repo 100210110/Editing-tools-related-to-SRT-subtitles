@@ -101,6 +101,9 @@
 
 ### 修复
 
+- 调试插件「测试报错」按钮改用 `RuntimeError`（TODO #20）：原实现 `raise KeyboardInterrupt`，`KeyboardInterrupt` 继承 `BaseException` 而非 `Exception`，`__init__.py` 的 `except Exception` 接不住，结果既不输出统一错误 JSON，也走 Python 默认 traceback，测不到真实错误链路。现在抛 `RuntimeError("测试插件故意抛出的异常（仅用于调试…）")`，恰好被统一 `except Exception` 捕获：stdout 得到 `{"status": false, "popup": {...}}`、stderr 得到 traceback、退出码 0。按钮用途不变（仍只用来看错误弹窗链路），文案已注明仅用于调试（`软件本体/plugins/测试插件/__init__.py`）。
+- 新增 `tests/test_debug_plugin.py`（3 项）：把插件入口复制到临时目录、用空实现顶替会弹 PySimpleGUI 窗口的 `test_1`，再以真实子进程跑 stdin/stdout 协议——① `status=false` 且消息含“测试插件故意抛出的异常”；② stderr 含 `Traceback` 与 `RuntimeError`，且 stdout 只有一份 JSON；③ AST 断言源码里不再出现 `raise KeyboardInterrupt`。
+- 归档自 `TODO.md` #20，编号不复用。
 - 统一规则编辑器的退出协议（TODO #18）：`subtitle_rule_editor.run()` 原先 `sys.exit(app.exec_())`，`SystemExit` 继承 `BaseException`，插件入口的 `except Exception` 接不住，主程序可能拿到空 stdout（表现是“点修改配置关掉后没有任何提示”）。现在 `run()` **返回** Qt 事件循环的退出码，`__main__` 里才 `raise SystemExit(run())`；`QApplication.instance() or QApplication(sys.argv)` 兼容已有实例（便于离屏测试）（`软件本体/plugins/srt关键词替换/subtitle_rule_editor.py`）。
 - 插件入口把事件分发抽成 `handle_event(event, params)`：`main` 仍由 `srt_keyword_editor.main()` 自己输出带 `completed_output_lists` 的 JSON（不重复输出），`subtitle_rule_editor` 分支统一走 `output_result`；`__main__` 新增 `except SystemExit`——退出码 0 输出 `status: true`、非 0 输出 `status: false` 并带“退出码 N”，异常分支保持原有 traceback + 错误 JSON（`软件本体/plugins/srt关键词替换/__init__.py`）。顺带修掉 `srt_keyword_editor.main()` 在空参数时 `sys.exit(1)` 同样绕过 `except Exception` 的老问题。
 - 新增 `tests/test_plugin_protocol.py`（7 项）：单元层用桩模块验证正常关闭输出成功 JSON、编辑器异常向上冒泡、AST 断言 `run()` 内无 `sys.exit` 且有 `return`；子进程层把入口复制到临时目录、用桩 `subtitle_rule_editor` 跑真实 stdin/stdout 协议，覆盖 `SystemExit(0)`、`SystemExit(1)`（消息含“退出码 1”）、普通异常（stderr 有 traceback）以及空 stdin 仍返回 JSON 且退出码 1。`conftest.py` 新增 `keyword_plugin_module` fixture（占位标准流 + 内存 logger，避免测试往仓库写 `plugin_log/`）。

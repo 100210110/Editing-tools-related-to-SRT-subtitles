@@ -67,7 +67,10 @@ if __name__ == "__main__":
             
             case "test2":
                 result = event_test_2(params)
-                raise KeyboardInterrupt
+                # 仅调试用：抛普通异常，验证“统一错误 JSON + stderr traceback”链路。
+                # 不能用 KeyboardInterrupt —— 它继承自 BaseException，下面的 except Exception 接不住，
+                # 会走 Python 默认 traceback 并跳过统一 JSON 输出。
+                raise RuntimeError("测试插件故意抛出的异常（仅用于调试，不承担任何实际功能）")
     
             case _:
                 result = event_main(params)
