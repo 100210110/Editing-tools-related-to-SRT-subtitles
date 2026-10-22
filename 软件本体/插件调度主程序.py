@@ -420,8 +420,13 @@ def show_about_window():
     window.close()
 
 # 初始化函数
-def init_program():
-    """初始化程序，返回 (window, button_map, program_dir, root) 或 None 表示失败"""
+def init_program(clear_cache=True):
+    """初始化程序，返回 (window, button_map, program_dir, root, cache_dir) 或 None 表示失败
+
+    参数:
+        clear_cache: 是否清空 cache/output。仅首次启动时为 True；
+                     插件导入后的重建传 False，避免删掉用户已处理的中间产物。
+    """
     global FILE_LIST  # 如果坚持使用全局变量
     
     # 获取程序根目录
@@ -430,9 +435,10 @@ def init_program():
     else:
         program_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # 清空缓存
+    # 清空缓存（仅首次启动；重建窗口时保留，否则会删掉已处理的输出）
     cache_dir = os.path.join(program_dir, "cache/output")
-    clear_folder(cache_dir)
+    if clear_cache:
+        clear_folder(cache_dir)
 
     # 扫描插件
     buttons = scan_plugins()
@@ -517,21 +523,27 @@ def main():
             window.close()
             # 2. 销毁 Tkinter 根窗口
             root.destroy()
-            # 3. 重新初始化
+            # 3. 重新初始化（“重启刷新”按重启语义处理，仍清空 cache/output）
             new_result = init_program()
             if new_result is None:
                 break  # 刷新失败，退出程序
-            # 4. 更新全局变量
+            # 4. 更新全局变量（FILE_LIST 是模块级全局，重建时不会丢失）
             window, button_map, program_dir, root, cache_dir = new_result
-            # 注意：FILE_LIST 可能需要在刷新时保留或重置，根据需求决定
-            # 例如保留原列表：pass，或清空：FILE_LIST.clear()
             continue  # 跳过本次循环后续处理，等待新窗口事件
 
         elif event == "import_plugin":
             file_result = import_plugin_list(FILE_LIST)
             if file_result.get("failed_files", []):
                 sg.popup_error(f"以下文件未导入:\n" + "\n".join(file_result.get("failed_files", [])))
-            set2 = set(file_result.get("success_list", []))
+            success_list = file_result.get("success_list", [])
+
+            # 只有真正装上了插件才需要重建窗口刷新按钮区；
+            # 失败、取消重装、无变动时插件没有变化，重建窗口只会清掉已处理的输出
+            if not success_list:
+                print("\n本次导入未安装任何插件，窗口保持不变\n")
+                continue
+
+            set2 = set(success_list)
             result = [x for x in FILE_LIST if x not in set2]
             FILE_LIST = result
             update_listbox(window, FILE_LIST)
@@ -541,14 +553,12 @@ def main():
             window.close()
             # 2. 销毁 Tkinter 根窗口
             root.destroy()
-            # 3. 重新初始化
-            new_result = init_program()
+            # 3. 重新初始化（不清空 cache/output，保住已处理的中间产物）
+            new_result = init_program(clear_cache=False)
             if new_result is None:
                 break  # 刷新失败，退出程序
             # 4. 更新全局变量
             window, button_map, program_dir, root, cache_dir = new_result
-            # 注意：FILE_LIST 可能需要在刷新时保留或重置，根据需求决定
-            # 例如保留原列表：pass，或清空：FILE_LIST.clear()
             continue  # 跳过本次循环后续处理，等待新窗口事件
         
 
