@@ -1,0 +1,54 @@
+# 日志：忽略所有 .log（含 cache/temp/ffmpeg-*.log 与插件 plugin_log/*.log），不设例外
+*.log
+
+# 运行缓存：主程序/插件的输入输出暂存与最终导出（实际位于 软件本体/ 下）
+软件本体/cache/output/
+软件本体/cache/temp/
+软件本体/output/
+软件本体/plugins/*/plugin_log/
+
+# 规则缓存：pickle 仅为自动机缓存，规则源码以 JSON 为准
+*.pkl
+
+# Python 通用：字节码、包元数据与测试/类型检查/覆盖率缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# PyInstaller：构建中间目录与 spec 文件
+build/
+dist/
+*.spec
+
+# 插件 FFmpeg 二进制：体积大，建议外部提供（当前仓库内无已跟踪的 ffmpeg/bin/*.exe）
+软件本体/plugins/*/ffmpeg/bin/*.exe
+
+# 临时/备份：编辑器崩溃恢复与补丁残留
+*.tmp
+*.bak
+*.swp
+*~
+*.orig
+*.rej
+
+# 编辑器/操作系统：IDE 配置与系统缩略图/元数据
+.vscode/
+.idea/
+*.iml
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# 说明：
+# - 以下源码/文档资产不在此忽略：docs/、config.json、plugins/*/manifest.json、
+#   plugins/srt关键词替换/subtitle_rules.json、default_subtitle_rules.json、
+#   plugins/ass转码透明底视频/test.ass、icon.ico、logo/、LICENSE、README.md、
+#   所有 .py 源码与 .txt 构建说明。
+# - 本文件只影响尚未被跟踪的文件；已跟踪的 cache/temp/ffmpeg-*.log 不会自动
+#   取消跟踪，如需清理须另行执行 git rm --cached（本任务不执行）。
+# - *.log 不设例外；确需保留的日志请调整命名或规则。
