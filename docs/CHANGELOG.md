@@ -95,6 +95,9 @@
 
 ### 打包
 
+- **`srt关键词替换` 1.6.0 插件包（2026-10-23）**：只重打包该插件（含新功能 `line_dedupe`），主程序与 `srt加前缀` / `测试插件` 不动。产物 `发布zip/srt关键词替换/srt关键词替换-v1.6.0.zip`（35.7 MB，根目录 `manifest.json` + `__init__.exe` + `subtitle_rules.json`，规则文件已含默认 `line_dedupe`）。脚本 `build_kw_160.py`（工作区根，**不入库**），复用 `build_release_141.py` 的 `kw` 目标参数，构建目录 `E://tmp//build160`。
+- 打包后实测（解压到临时目录，按宿主协议用 stdin 喂 JSON）：输入含 `   哔哔哔哔哔哔   ` / `嘿嘿哈哈嘿嘿哈哈` / `嘿嘿哈哈嘿嘿哈哈草` / `今天的天气不错` / `哈哈哈哈哈哈哈` 五条，输出分别为 `哔 哔 哔`、`嘿嘿哈哈 嘿嘿哈哈`、原样（严格模式不处理）、原样、`哈哈哈`（先被 `repeat` 压缩），首尾空白已去除；stdout 返回 `{"status": "ok", "processed": 1, ...}`，stderr 提示缓存因 `CACHE_SCHEMA_VERSION` 升版而重建。
+- 注意：`Re工具箱 - v1.4.1.zip` 与 `- 无插件.zip` 内的插件仍为 1.5.0（本次未重打主程序包），需要 1.6.0 的用户单独装插件 zip。
 - **1.4.1 正式版打包（2026-10-23）**：`软件本体/config.json` → `1.4.1`（去掉 beta 后缀，`update_date` 保持 2026-10-23）；插件版本不变（`srt关键词替换` 1.5.0 / `srt加前缀` 1.2.0 / `测试插件` 1.1.1），插件代码自 1.4.1b 之后未再改动。正式包只重建主程序 exe（`--name "Re工具箱 - v1.4.1"`，31.6 s），三个插件 exe 直接复用 1.4.1b 已实测的同一份二进制（`E:\tmp\build141\dist`），避免重复构建带来差异。
 - 产物（不入库，`发布zip/Re工具箱/`）：`Re工具箱 - v1.4.1.zip`（65.0 MB，含三个插件及各自的 `manifest.json`、关键词插件的 `subtitle_rules.json`）、`Re工具箱 - v1.4.1 - 无插件.zip`（11.7 MB，仅主程序 + 空 `plugins/`）。两者 zip 根目录直接是文件内容（对齐 v1.3.0 正式包，无外层文件夹），含空目录 `cache/{output,temp}`、`output`，不含 pkl / `plugin_log/` / ffmpeg 日志；`zipfile.testzip()` 校验通过，包内 `config.json` 为 `1.4.1`。
 - 打包脚本：新增 `build_release_141_formal.py`（工作区根，不入库）；`build_release_141.py` 改用 `RE_VERSION` / `RE_BUILD_ROOT` 环境变量控制版本与构建目录（默认仍为 1.4.1b），一套脚本同时支持 beta 目录装配与正式 zip。
