@@ -1,4 +1,11 @@
 {
+    "line_dedupe": {
+        "enabled": true,
+        "strict": true,
+        "min_chars": 6,
+        "single_keep": 3,
+        "multi_keep": 2
+    },
     "delete": {
         "profanity": [
             "傻逼",

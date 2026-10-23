@@ -9,7 +9,15 @@ from functools import wraps
 # 默认配置
 default_config = {"delete":{"profanity":["傻逼","傻波","卧槽","哎呦我草","我操","我草","我靠","我去","哦李现","what's up","what the fuck","我的妈","我的fuck","fuck","你他妈的","你他喵的","ntmd","你妈的","nmd","他妈的","他喵的","TMD","tmd","妈的","喵的","md","你妈","nm","他妈","他喵","tm","oh shit"],"others":["呃","huh","uh"]},"repeat":[{"word":"完了","enabled":True,"max_times":2,"interval":{"enabled":True,"min_consecutive":3,"separator":" "}},{"word":"哈","enabled":True,"max_times":3,"interval":{"enabled":False,"min_consecutive":3,"separator":" "}},{"word":"不行","enabled":True,"max_times":3,"interval":{"enabled":True,"min_consecutive":3,"separator":" "}},{"word":"我知道","enabled":True,"max_times":2,"interval":{"enabled":True,"min_consecutive":2,"separator":" "}},{"word":"别","enabled":True,"max_times":3,"interval":{"enabled":False,"min_consecutive":3,"separator":" "}}],"replace":[{"word":"我的世界","type":"group","enabled":True,"items":[{"word":"MCUP名字","type":"group","enabled":True,"items":[{"word":"卡慕","enabled":True,"source":["卡布","卡莫","卡木","卡不","卡姆","Kamu","karm","come","卡慕 on","扛我","Kobe","carm","Kame","蛤蟆","Carmore","Carmel","考不"]},{"word":"卡慕SaMa","enabled":True,"source":["卡慕sama","卡慕Sama","卡慕沙发","卡慕沙吧","砍不上吗","卡慕萨巴","卡慕沙吗","卡穆萨玛"]},{"word":"谭俊峰","enabled":True,"source":["传进风"]},{"word":"米洛","enabled":True,"source":["米诺","米罗","笔落","余姚","比洛","米拉","米露","米勒","明总"]},{"word":"萝卜吃米洛","enabled":True,"source":["萝卜吃鱼了","罗旭罗","罗旭"]},{"word":"宁宇航","enabled":True,"source":["李宇航"]},{"word":"碧月狐","enabled":True,"source":["碧月湖","闭月狐","毕业胡","b月湖","b月会","B2胡","月壶","夜壶","壁虎","鳖胡","别胡","憋活","别活"]},{"word":"曹某","enabled":True,"source":["Tom"]},{"word":"曹小龙","enabled":True,"source":["草药龙","张小龙","操小龙","超小龙","曹勇","沙拉龙","条龙"]},{"word":"qiqi","enabled":True,"source":["KIKI","KI KI","KKI","QIQI","QI QI","KIQI"]},{"word":"Q3","enabled":True,"source":["q3"]},{"word":"贺子鹏","enabled":True,"source":["蔡子鹏","鹤头","赫德王","赫兹峰"]},{"word":"药儿","enabled":True,"source":["幺儿"]},{"word":"流赫","enabled":True,"source":["流贺","刘贺","刘赫","刘河","刘恒"]},{"word":"死睿","enabled":True,"source":["sweet","Siri","THREE"]},{"word":"烦华","enabled":True,"source":["芳芳"]},{"word":"鸽一品","enabled":True,"source":["葛一平","GEP","隔一天","割一瓢"]},{"word":"幕川北","enabled":True,"source":["木川北","莫川北"]}]},{"word":"操作","type":"group","enabled":True,"items":[{"word":"控距","enabled":True,"source":["控狙"]},{"word":"TP","enabled":True,"source":["TV"]},{"word":"跳劈","enabled":True,"source":["跳p"]}]},{"word":"游戏内事物","type":"group","enabled":True,"items":[{"word":"掉落物","enabled":True,"source":["掉了物"]},{"word":"附魔金","enabled":True,"source":["复活金"]},{"word":"蘑菇牛","enabled":True,"source":["蘑菇流"]},{"word":"猪灵","enabled":True,"source":["朱玲"]},{"word":"坚守者","enabled":True,"source":["接受者","监视者"]},{"word":"烈焰人","enabled":True,"source":["猎人"]},{"word":"末影人","enabled":True,"source":["梦人"]},{"word":"末影龙","enabled":True,"source":["莫云龙"]},{"word":"龙息","enabled":True,"source":["浓稀"]},{"word":"细雪","enabled":True,"source":["气血"]},{"word":"煤炭","enabled":True,"source":["没炭"]},{"word":"岩浆湖","enabled":True,"source":["人江湖"]},{"word":"岩浆","enabled":True,"source":["岩尖"]},{"word":"刷怪笼","enabled":True,"source":["创二龙"]},{"word":"猪灵堡垒","enabled":True,"source":["珠林堡垒","朱宁堡垒"]},{"word":"末影水晶","enabled":True,"source":["魔女水晶"]},{"word":"主世界","enabled":True,"source":["主界"]}]}]},{"word":"口语","type":"group","enabled":True,"items":[{"word":"OK","enabled":True,"source":["okay"]},{"word":"厉害","enabled":True,"source":["牛逼"]},{"word":"懂你意思","enabled":True,"source":["don't listen"]},{"word":"好枪","enabled":True,"source":["烤箱"]}]},{"word":"误识别英语","type":"group","enabled":True,"items":[{"word":"这","enabled":True,"source":["this"]}]},{"word":"三角洲","type":"group","enabled":True,"items":[{"word":"地点","type":"group","enabled":True,"items":[{"word":"巴克什","enabled":True,"source":["8个10","挖个10","BUG10","巴克斯"]},{"word":"普坝","enabled":True,"source":["普巴"]},{"word":"大坝","enabled":True,"source":["大巴"]},{"word":"坝顶","enabled":True,"source":["霸顶"]},{"word":"蓝汀","enabled":True,"source":["蓝厅"]},{"word":"水泥厂","enabled":True,"source":["水泥铲"]},{"word":"牢区","enabled":True,"source":["老区"]},{"word":"西楼","enabled":True,"source":["西路"]},{"word":"蓝数","enabled":True,"source":["蓝树"]},{"word":"蓝核","enabled":True,"source":["蓝盒"]}]},{"word":"干员","type":"group","enabled":True,"items":[{"word":"麦晓雯","enabled":True,"source":["麦小文"]},{"word":"威龙","enabled":True,"source":["维鲁"]},{"word":"蜂医","enabled":True,"source":["风衣"]},{"word":"乌鲁鲁","enabled":True,"source":["乌噜噜","咕噜噜"]}]},{"word":"操作","type":"group","enabled":True,"items":[{"word":"报点","enabled":True,"source":["爆点"]},{"word":"破译","enabled":True,"source":["破夜"]},{"word":"卡战备","enabled":True,"source":["卡站位"]},{"word":"护航","enabled":True,"source":["护盘"]},{"word":"精标","enabled":True,"source":["金标"]}]},{"word":"物品","type":"group","enabled":True,"items":[{"word":"武器","type":"group","enabled":True,"items":[{"word":"AUG","enabled":True,"source":["AOG"]}]},{"word":"装备","type":"group","enabled":True,"items":[{"word":"弹挂","enabled":True,"source":["半挂"]},{"word":"六套","enabled":True,"source":["刘涛","6炮"]}]},{"word":"物资","type":"group","enabled":True,"items":[{"word":"本地特色首饰","enabled":True,"source":["本地特色手势"]},{"word":"希望之钥","enabled":True,"source":["希望之药"]}]}]}]}]}
 # 缓存载荷结构版本：字段或结构变化时递增
-CACHE_SCHEMA_VERSION = 2
+CACHE_SCHEMA_VERSION = 3
+# 单条字幕纯重复去重的默认配置（规则 JSON 根键 line_dedupe，缺字段时以此兜底）
+LINE_DEDUPE_DEFAULTS = {
+    "enabled": True,
+    "strict": True,
+    "min_chars": 6,
+    "single_keep": 3,
+    "multi_keep": 2,
+}
 logs = "记录日志"
 
 
@@ -72,6 +80,8 @@ class SubtitleRuleProcessor:
         self._profanity_count = 0
         # 跨节点重复 source：(source, 先出现的正确词, 后出现的正确词)，后者会覆盖前者
         self.source_conflicts: List[tuple] = []
+        # 单条字幕纯重复去重配置（缺省见 LINE_DEDUPE_DEFAULTS）
+        self.line_dedupe_rule: Dict[str, object] = dict(LINE_DEDUPE_DEFAULTS)
 
     def _get_json(self):
         if self.raw_config:
@@ -163,6 +173,26 @@ class SubtitleRuleProcessor:
             # 同一重复词配置多次时，按“max_times 小者优先”保留
             if existing is None or max_times < existing["max_times"]:
                 self.repeat_rule_map[word] = new_rule
+
+    def _parse_line_dedupe_config(self):
+        """解析 line_dedupe 部分：缺键、缺字段或非法值一律回落到默认配置。
+
+        规则 JSON 里的结构：{"enabled": bool, "strict": bool,
+                            "min_chars": int, "single_keep": int, "multi_keep": int}
+        """
+        rule = dict(LINE_DEDUPE_DEFAULTS)
+        cfg = self.raw_config.get("line_dedupe") if isinstance(self.raw_config, dict) else None
+        if isinstance(cfg, dict):
+            if isinstance(cfg.get("enabled"), bool):
+                rule["enabled"] = cfg["enabled"]
+            if isinstance(cfg.get("strict"), bool):
+                rule["strict"] = cfg["strict"]
+            # 数值项：必须是 >= 下限的整数（bool 是 int 的子类，需要排除）
+            for key, minimum in (("min_chars", 2), ("single_keep", 1), ("multi_keep", 1)):
+                value = cfg.get(key)
+                if isinstance(value, int) and not isinstance(value, bool) and value >= minimum:
+                    rule[key] = value
+        self.line_dedupe_rule = rule
 
     def _process_node(self, node: dict):
         """递归处理 replace 节点，构建映射表"""
@@ -331,6 +361,89 @@ class SubtitleRuleProcessor:
             text = text[:start] + replacement + text[end:]
         return text
 
+    # ---------- 单条字幕纯重复去重（line_dedupe） ----------
+    @staticmethod
+    def _minimal_period(s: str) -> int:
+        """返回 s 的最小周期长度；不构成循环时返回 len(s)。"""
+        n = len(s)
+        if n <= 1:
+            return n
+        pos = (s + s).find(s, 1)
+        if 0 < pos < n and n % pos == 0:
+            return pos
+        return n
+
+    @staticmethod
+    def _format_repeat_unit(unit: str, rule: dict) -> str:
+        """单字循环保留 single_keep 个、多字循环保留 multi_keep 个，用单个空格连接。"""
+        keep = rule["single_keep"] if len(unit) == 1 else rule["multi_keep"]
+        return " ".join([unit] * int(keep))
+
+    def _find_longest_repeat_run(self, s: str, min_len: int):
+        """在行内寻找最长的纯循环片段，返回 (start, end, unit)；没有则 None。
+
+        等长时取靠前的一段（按 start 升序遍历，只有严格更长才替换）。
+        """
+        n = len(s)
+        best = None
+        best_len = 0
+        for period in range(1, n // 2 + 1):
+            for start in range(0, n - 2 * period + 1):
+                unit = s[start:start + period]
+                times = 1
+                while (start + (times + 1) * period <= n
+                       and s[start + times * period:start + (times + 1) * period] == unit):
+                    times += 1
+                if times < 2:
+                    continue
+                length = times * period
+                if length >= min_len and length > best_len:
+                    best = (start, start + length, unit)
+                    best_len = length
+        return best
+
+    def _normalize_repeat_line(self, line: str, rule: dict) -> str:
+        """严格模式：整行必须恰好是纯循环，判定长度用整行长度。"""
+        if len(line) < int(rule["min_chars"]):
+            return line
+        period = self._minimal_period(line)
+        if period >= len(line):
+            return line  # 不是纯循环（含额外字符）
+        return self._format_repeat_unit(line[:period], rule)
+
+    def _normalize_repeat_fragment(self, line: str, rule: dict) -> str:
+        """非严格模式：只替换行内最长的纯循环片段，判定长度用片段长度。"""
+        if len(line) < int(rule["min_chars"]):
+            return line
+        run = self._find_longest_repeat_run(line, int(rule["min_chars"]))
+        if run is None:
+            return line
+        start, end, unit = run
+        return line[:start] + self._format_repeat_unit(unit, rule) + line[end:]
+
+    @staticmethod
+    def _is_structural_line(line: str) -> bool:
+        """SRT 结构行（空行 / 纯序号 / 时间轴）不做去重，避免误伤。"""
+        return (not line) or line.isdigit() or "-->" in line
+
+    def _dedupe_repeated_lines(self, text: str) -> str:
+        """逐行做纯重复归一，并统一去掉每行首尾空白（去空白不受开关影响）。"""
+        rule = self.line_dedupe_rule or LINE_DEDUPE_DEFAULTS
+        enabled = bool(rule.get("enabled", True))
+        strict = bool(rule.get("strict", True))
+        out = []
+        for raw in text.splitlines(keepends=True):
+            body = raw.rstrip("\r\n")
+            ending = raw[len(body):]
+            stripped = body.strip()
+            if enabled and stripped and not self._is_structural_line(stripped):
+                if strict:
+                    stripped = self._normalize_repeat_line(stripped, rule)
+                else:
+                    stripped = self._normalize_repeat_fragment(stripped, rule)
+            out.append(stripped + ending)
+        return "".join(out)
+
     def process_text(self, text: str) -> str:
         if self.automaton is None:
             raise RuntimeError("请先调用 load_rules() 加载规则")
@@ -355,7 +468,9 @@ class SubtitleRuleProcessor:
                     logs += f"警告：未知的自动机值格式 {value}"
         matches = self._resolve_overlaps(matches)
         cleaned_text = self._apply_operations(text, matches)
-        return self._apply_repeat_rules(cleaned_text)
+        cleaned_text = self._apply_repeat_rules(cleaned_text)
+        # 最后兜底：整行纯重复归一 + 每行去首尾空白
+        return self._dedupe_repeated_lines(cleaned_text)
     
     def _calculate_json_hash(self):
         """计算规则 JSON 规范化后的 SHA-256，纯格式变化不触发重建"""
@@ -399,6 +514,7 @@ class SubtitleRuleProcessor:
             self.replace_source_to_word = data['replace_source_to_word']
             self.all_keywords = data['all_keywords']
             self.raw_config = data.get('raw_config')  # 可选
+            self.line_dedupe_rule = data.get('line_dedupe_rule') or dict(LINE_DEDUPE_DEFAULTS)
         except Exception as e:
             print(f"缓存数据不完整: {e}", file=sys.stderr)
             return None
@@ -416,6 +532,7 @@ class SubtitleRuleProcessor:
             'replace_source_to_word': self.replace_source_to_word,
             'all_keywords': self.all_keywords,
             'raw_config': self.raw_config,
+            'line_dedupe_rule': self.line_dedupe_rule,
             'json_content_hash': self._calculate_json_hash(),
             'schema_version': CACHE_SCHEMA_VERSION,
         }
@@ -443,9 +560,11 @@ class SubtitleRuleProcessor:
         self.replace_word_to_sources = {}
         self.replace_source_to_word = {}
         self.source_conflicts = []
+        self.line_dedupe_rule = dict(LINE_DEDUPE_DEFAULTS)
         self._parse_delete_config()
         self._parse_replace_config()
         self._parse_repeat_config()
+        self._parse_line_dedupe_config()
         self._build_all_keywords()
         self._build_automaton()
         self._save_to_cache()

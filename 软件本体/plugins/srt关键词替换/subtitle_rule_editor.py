@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTreeWidget, QTreeWidgetItem, QPushButton, QFileDialog, QMessageBox,
     QMenu, QInputDialog, QLineEdit, QDialog, QFormLayout, QSpinBox,
-    QCheckBox, QGroupBox, QDialogButtonBox, QListWidget, QHeaderView
+    QCheckBox, QGroupBox, QDialogButtonBox, QListWidget, QHeaderView, QLabel
 )
 from PyQt5.QtCore import Qt
 from common import get_path, find_duplicate_sources
@@ -15,6 +15,38 @@ import logging
 logger = logging.getLogger('str_editor_plugin')
 
 WORKING_RULE_FILENAME = "subtitle_rules.json"
+
+# 单条字幕纯重复去重的默认配置（与 build_automaton.LINE_DEDUPE_DEFAULTS 保持一致）
+LINE_DEDUPE_DEFAULTS = {
+    "enabled": True,
+    "strict": True,
+    "min_chars": 6,
+    "single_keep": 3,
+    "multi_keep": 2,
+}
+
+
+def ensure_line_dedupe(data):
+    """保证 `data` 里有合法、完整的 `line_dedupe` 根键，并返回规范化后的配置。
+
+    旧规则文件没有这个键，或用户手改后字段缺失/类型不对时，一律用默认值补齐，
+    避免编辑器保存时写出残缺配置、也避免处理器读到非法值。
+    """
+    cfg = data.get("line_dedupe") if isinstance(data, dict) else None
+    rule = dict(LINE_DEDUPE_DEFAULTS)
+    if isinstance(cfg, dict):
+        if isinstance(cfg.get("enabled"), bool):
+            rule["enabled"] = cfg["enabled"]
+        if isinstance(cfg.get("strict"), bool):
+            rule["strict"] = cfg["strict"]
+        for key, minimum in (("min_chars", 2), ("single_keep", 1), ("multi_keep", 1)):
+            value = cfg.get(key)
+            # bool 是 int 的子类，需要排除，否则 True 会被当成 1
+            if isinstance(value, int) and not isinstance(value, bool) and value >= minimum:
+                rule[key] = value
+    if isinstance(data, dict):
+        data["line_dedupe"] = rule
+    return rule
 
 
 def default_working_path():
@@ -122,6 +154,72 @@ class RepeatRuleDialog(QDialog):
                 "separator": self.separator_edit.text()
             }
         }
+
+class LineDedupeDialog(QDialog):
+    """单条字幕纯重复去重（line_dedupe）配置。"""
+
+    def __init__(self, rule_data, parent=None):
+        super().__init__(parent)
+        self.rule_data = dict(LINE_DEDUPE_DEFAULTS)
+        self.rule_data.update(rule_data or {})
+        self.setWindowTitle("单条去重设置")
+        self.setModal(True)
+        layout = QFormLayout(self)
+
+        self.enabled_check = QCheckBox()
+        self.enabled_check.setChecked(bool(self.rule_data.get("enabled", True)))
+        self.enabled_check.setToolTip("关闭后不再检测纯重复行；「每行去首尾空格」仍会执行。")
+
+        self.strict_check = QCheckBox()
+        self.strict_check.setChecked(bool(self.rule_data.get("strict", True)))
+        self.strict_check.setToolTip(
+            "严格：整行必须恰好是同一个单元的循环，按整行长度判断"
+            "（如「哈哈哈哈草」不处理）。\n"
+            "非严格：允许行内还有其他文字，只替换最长的循环片段，按片段长度判断。"
+        )
+
+        self.min_chars_spin = QSpinBox()
+        self.min_chars_spin.setRange(2, 20)
+        self.min_chars_spin.setValue(int(self.rule_data.get("min_chars", 6)))
+        self.min_chars_spin.setToolTip("整行（严格）或循环片段（非严格）达到该字数才处理，等于也算。")
+
+        self.single_keep_spin = QSpinBox()
+        self.single_keep_spin.setRange(1, 20)
+        self.single_keep_spin.setValue(int(self.rule_data.get("single_keep", 3)))
+        self.single_keep_spin.setToolTip("单字循环保留几个，输出形如「哈 哈 哈」。")
+
+        self.multi_keep_spin = QSpinBox()
+        self.multi_keep_spin.setRange(1, 20)
+        self.multi_keep_spin.setValue(int(self.rule_data.get("multi_keep", 2)))
+        self.multi_keep_spin.setToolTip("多字循环保留几个，输出形如「嘿嘿哈哈 嘿嘿哈哈」。")
+
+        layout.addRow("启用单条去重:", self.enabled_check)
+        layout.addRow("严格模式:", self.strict_check)
+        layout.addRow("字数 ≥:", self.min_chars_spin)
+        layout.addRow("单字循环保留:", self.single_keep_spin)
+        layout.addRow("多字循环保留:", self.multi_keep_spin)
+        layout.addRow(
+            QLabel(
+                "示例（阈值 6、单字保留 3、多字保留 2）：\n"
+                "  呵呵呵呵呵 → 呵 呵 呵    嘿嘿哈哈嘿嘿哈哈 → 嘿嘿哈哈 嘿嘿哈哈\n"
+                "  单元取最小周期：「呵呵呵呵」按「呵」重复计，不算双字循环。"
+            )
+        )
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+
+    def get_data(self):
+        return {
+            "enabled": self.enabled_check.isChecked(),
+            "strict": self.strict_check.isChecked(),
+            "min_chars": self.min_chars_spin.value(),
+            "single_keep": self.single_keep_spin.value(),
+            "multi_keep": self.multi_keep_spin.value(),
+        }
+
 
 class ReplaceItemDialog(QDialog):
     def __init__(self, item_data, parent=None, known_sources=None):
@@ -269,6 +367,7 @@ class SubtitleEditor(QMainWindow):
             except Exception as e:
                 QMessageBox.warning(self, "警告", f"加载工作文件失败：{str(e)}，将使用默认模板。")
 
+        ensure_line_dedupe(self.data)
         warn_removed_regex(removed_regex, self)
 
 
@@ -319,6 +418,7 @@ class SubtitleEditor(QMainWindow):
                 return False
             # 兜底：regex 类型已废弃，不允许再写回规则文件
             strip_regex_nodes(self.data)
+            ensure_line_dedupe(self.data)
             json_str = json.dumps(self.data, ensure_ascii=False, indent=4)
             json_str = self._compact_leaf_nodes(json_str)
             with open(filename, 'w', encoding='utf-8') as f:
@@ -350,7 +450,12 @@ class SubtitleEditor(QMainWindow):
         return re.sub(pattern, compress, json_str, flags=re.DOTALL)
 
     def new_file(self):
-        self.data = {"delete": {"profanity": [], "others": []}, "repeat": [], "replace": []}
+        self.data = {
+            "delete": {"profanity": [], "others": []},
+            "repeat": [],
+            "replace": [],
+            "line_dedupe": dict(LINE_DEDUPE_DEFAULTS),
+        }
         # 工作文件固定在程序目录；打包后 __file__ 指向只读的 _MEIPASS，不能再用来拼路径
         self.current_file = default_working_path()
         self.build_tree()
@@ -363,6 +468,7 @@ class SubtitleEditor(QMainWindow):
                 with open(filename, 'r', encoding='utf-8') as f:
                     self.data = json.load(f)
                 self.current_file = filename
+                ensure_line_dedupe(self.data)
                 self.build_tree()
                 warn_removed_regex(strip_regex_nodes(self.data), self)
                 QMessageBox.information(self, "成功", f"已加载 {filename}")
@@ -395,10 +501,13 @@ class SubtitleEditor(QMainWindow):
         self.open_btn = QPushButton("打开")
         self.save_btn = QPushButton("保存")
         self.save_as_btn = QPushButton("另存为")
+        self.dedupe_btn = QPushButton("单条去重")
+        self.dedupe_btn.setToolTip("配置整行纯重复的归一化：字数阈值、单字/多字保留次数、严格模式")
         toolbar.addWidget(self.new_btn)
         toolbar.addWidget(self.open_btn)
         toolbar.addWidget(self.save_btn)
         toolbar.addWidget(self.save_as_btn)
+        toolbar.addWidget(self.dedupe_btn)
         toolbar.addStretch()
         main_layout.addLayout(toolbar)
 
@@ -413,6 +522,7 @@ class SubtitleEditor(QMainWindow):
         self.open_btn.clicked.connect(self.open_file)
         self.save_btn.clicked.connect(self.save_file)
         self.save_as_btn.clicked.connect(self.save_as_file)
+        self.dedupe_btn.clicked.connect(self.edit_line_dedupe)
 
         self.build_tree()
 
@@ -431,12 +541,40 @@ class SubtitleEditor(QMainWindow):
         replace_root.setText(0, "Replace")
         self.build_replace_tree(replace_root)
 
+        dedupe_root = QTreeWidgetItem(self.tree)
+        dedupe_root.setText(0, "单条去重")
+        self.build_line_dedupe_tree(dedupe_root)
+
         header = self.tree.header()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
 
         self.tree.collapseAll()
+
+    def build_line_dedupe_tree(self, parent_item):
+        """把 line_dedupe 的当前配置挂到树里，双击整组或点工具栏按钮都能改。"""
+        rule = ensure_line_dedupe(self.data)
+        rows = [
+            ("启用", "是" if rule["enabled"] else "否"),
+            ("严格模式", "是（整行纯重复才处理）" if rule["strict"] else "否（处理行内循环片段）"),
+            ("字数阈值", f"≥ {rule['min_chars']}"),
+            ("单字循环保留", f"{rule['single_keep']} 个（形如 哈 哈 哈）"),
+            ("多字循环保留", f"{rule['multi_keep']} 个（形如 嘿嘿哈哈 嘿嘿哈哈）"),
+        ]
+        for name, value in rows:
+            child = QTreeWidgetItem(parent_item)
+            child.setText(0, name)
+            child.setText(1, value)
+
+    def edit_line_dedupe(self):
+        """打开「单条去重」设置对话框，确认后写回 self.data 并刷新树。"""
+        rule = ensure_line_dedupe(self.data)
+        dialog = LineDedupeDialog(rule, self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.data["line_dedupe"] = dialog.get_data()
+            logger.info("单条去重配置更新: %s", self.data["line_dedupe"])
+            self.build_tree()
 
     def build_delete_tree(self, parent_item):
         profanity_item = QTreeWidgetItem(parent_item)

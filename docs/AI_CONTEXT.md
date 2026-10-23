@@ -382,8 +382,9 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | 10 | 逐文件读取文本，重置敏感词计数，调用 `process_text()` | `srt_keyword_editor.py:90-119` |
 | 11 | `process_text()` 用主自动机收集 delete/replace 匹配，解析重叠，按位置从右到左删除/替换 | `build_automaton.py:223-258`、`315-337` |
 | 12 | 在清理后的文本上执行 repeat：连续同词重复按 `max_times` 压缩；满足间隔条件时插入分隔符；不改变敏感词计数 | `260-313` |
-| 13 | 写回 `cache/output/<12位哈希>__<原 basename>.srt`（哈希前缀见 4.7 第 4 条），记录成功列表 | `srt_keyword_editor.py`（`cache_output_name()`） |
-| 14 | 统计每个文件删除的 profanity 次数，按降序取前 10，生成“文明小助手”文案 | `32-57`、`81-123` |
+| 13 | 逐行做单条去重（`line_dedupe`）：整行/片段是纯循环且达到 `min_chars` 时按最小周期归一（单字 `哈 哈 哈`、多字 `嘿嘿哈哈 嘿嘿哈哈`）；同时去掉每行首尾空白 | `_dedupe_repeated_lines()` |
+| 14 | 写回 `cache/output/<12位哈希>__<原 basename>.srt`（哈希前缀见 4.7 第 4 条），记录成功列表 | `srt_keyword_editor.py`（`cache_output_name()`） |
+| 15 | 统计每个文件删除的 profanity 次数，按降序取前 10，生成“文明小助手”文案 | `32-57`、`81-123` |
 | 15 | stdout 输出 JSON（含 `popup` 与 `completed_output_lists`） | `127-139` |
 
 关键语义：
@@ -537,10 +538,17 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 ### 6.5 `subtitle_rules.json` 结构
 
-顶层三个键：
+顶层四个键：
 
 ```json
 {
+  "line_dedupe": {
+    "enabled": true,
+    "strict": true,
+    "min_chars": 6,
+    "single_keep": 3,
+    "multi_keep": 2
+  },
   "delete": {
     "profanity": ["傻逼", "卧槽", "..."],
     "others": ["呃", "huh", "uh"]
@@ -587,6 +595,12 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 | `repeat[].interval.enabled` | bool | 是否启用分隔符 | 仅控制是否插入分隔符，不影响压缩与识别 |
 | `repeat[].interval.min_consecutive` | int | 最小连续次数 | 原始连续次数达到该值时插入分隔符（按压缩前计数） |
 | `repeat[].interval.separator` | string | 分隔符 | 插入在保留的重复词之间 |
+| `line_dedupe` | object | 单条字幕纯重复去重配置 | 缺键/字段非法时回落内置默认值 |
+| `line_dedupe.enabled` | bool | 是否启用去重检测 | `false` 时只做每行去首尾空白 |
+| `line_dedupe.strict` | bool | 严格模式（默认 `true`） | `true`：整行必须恰好是纯循环，按整行长度判断；`false`：只替换行内最长循环片段，按片段长度判断 |
+| `line_dedupe.min_chars` | int | 触发阈值（默认 6） | **≥ 该值**即触发（等于也算），按去首尾空白后的字符数计算 |
+| `line_dedupe.single_keep` | int | 单字循环保留次数（默认 3） | 单元长度为 1 时输出 `哈 哈 哈` |
+| `line_dedupe.multi_keep` | int | 多字循环保留次数（默认 2） | 单元长度 ≥2 时输出 `嘿嘿哈哈 嘿嘿哈哈` |
 | `replace[]` | object[] | 替换规则树 | 递归解析 |
 | `replace[].type` | string | `group` / `correction`（`regex` 已移除） | `group` 递归；`correction` 建映射；其他类型跳过并在 stderr 告警（`179-190`） |
 | `replace[].word` | string | 分组名或正确词 | `correction` 的目标词 |
@@ -596,6 +610,8 @@ Re工具箱是一个 **Windows 桌面端的字幕后期处理工具台**：用�
 
 数据语义：
 
+- `line_dedupe` 按**最小周期**判定单元：`呵呵呵呵` 是 `呵`×4（单字分支），`嘿嘿哈哈嘿嘿哈哈` 的单元是 `嘿嘿哈哈`（多字分支）；不设单元长度上限。处理器先跑 delete/replace、再跑 repeat、最后跑 `line_dedupe`，因此配过 `repeat` 的行会先被压缩、通常不再达到阈值。
+- 每行去首尾空白是**无条件**的（`line_dedupe.enabled=false` 也执行），纯序号行与含 `-->` 的时间轴行不参与去重。
 - 处理器的映射是**扁平**的：递归遍历所有启用的 `correction` 节点，最终只保留 `source → word` 一张表；分组层级只用于编辑和启用/禁用，不参与运行时匹配。
 - 同一个 `source` 出现在多个 `correction` 节点时，后遍历到的会覆盖先前的目标词（`build_automaton.py:171-176`）。
 - 删除词通过 `list(set(...))` 去重，顺序不稳定，但删除语义与顺序无关（`104-112`）。
